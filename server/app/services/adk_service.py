@@ -1,4 +1,5 @@
 import os
+import uuid
 from google.genai import types
 from google.adk.agents import Agent
 from google.adk.runners import Runner
@@ -27,9 +28,11 @@ async def run_adk_agent(name: str, instruction: str, prompt: str) -> str:
         instruction=instruction,
     )
 
-    runner = Runner(agent=agent, session_service=session_service, app_name="movie_agent")
-    user_id = "movie_agent_user"
-    session = await session_service.create_session(app_name="movie_agent", user_id=user_id)
+    # Fresh session per call so history never bleeds between runs
+    app_name = "movie_agent"
+    user_id = f"user_{uuid.uuid4().hex}"
+    runner = Runner(agent=agent, session_service=session_service, app_name=app_name)
+    session = await session_service.create_session(app_name=app_name, user_id=user_id)
 
     new_msg = types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
 

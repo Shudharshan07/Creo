@@ -1,27 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
+﻿import React, { useCallback, useEffect, useState } from "react"
+import { ThemeContext, type ResolvedTheme, type Theme } from "./theme"
 
-export type Theme = "dark" | "light" | "system"
-export type ResolvedTheme = "dark" | "light"
+export type { ResolvedTheme, Theme } from "./theme"
 
-interface ThemeContextValue {
-  theme: Theme
-  resolvedTheme: ResolvedTheme
-  setTheme: (theme: Theme) => void
+function getSystemTheme(): ResolvedTheme {
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
 }
 
-const ThemeContext = createContext<ThemeContextValue>({
-  theme: "dark",
-  resolvedTheme: "dark",
-  setTheme: () => {},
-})
-
-export const useTheme = () => useContext(ThemeContext)
-
-function getResolved(t: Theme): ResolvedTheme {
-  if (t === "system") {
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
-  }
-  return t
+function getResolved(theme: Theme, systemTheme: ResolvedTheme): ResolvedTheme {
+  return theme === "system" ? systemTheme : theme
 }
 
 function applyTheme(resolved: ResolvedTheme) {
@@ -39,33 +26,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setThemeState] = useState<Theme>(() => {
     return (localStorage.getItem("ma-theme") as Theme) ?? "dark"
   })
-
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
-    const t = (localStorage.getItem("ma-theme") as Theme) ?? "dark"
-    return getResolved(t)
-  })
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme())
+  const resolvedTheme = getResolved(theme, systemTheme)
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)
     localStorage.setItem("ma-theme", newTheme)
-    const resolved = getResolved(newTheme)
-    setResolvedTheme(resolved)
-    applyTheme(resolved)
   }, [])
 
-  // Apply on mount + watch system preference when theme = "system"
   useEffect(() => {
-    const resolved = getResolved(theme)
-    setResolvedTheme(resolved)
-    applyTheme(resolved)
+    applyTheme(resolvedTheme)
+  }, [resolvedTheme])
 
+  useEffect(() => {
     if (theme !== "system") return
 
     const mq = window.matchMedia("(prefers-color-scheme: light)")
     const handler = (e: MediaQueryListEvent) => {
-      const r: ResolvedTheme = e.matches ? "light" : "dark"
-      setResolvedTheme(r)
-      applyTheme(r)
+      setSystemTheme(e.matches ? "light" : "dark")
     }
     mq.addEventListener("change", handler)
     return () => mq.removeEventListener("change", handler)

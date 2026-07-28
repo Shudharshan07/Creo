@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"
+﻿import React, { useState, useEffect, useCallback } from "react"
 import {
   X,
   User,
@@ -12,7 +12,7 @@ import {
   Camera,
   Bell,
 } from "lucide-react"
-import { useTheme, type Theme } from "../context/ThemeContext"
+import { useTheme, type Theme } from "../context/theme"
 
 interface AccountSettingsModalProps {
   isOpen: boolean
@@ -87,7 +87,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           height: "min(680px, 90vh)",
         }}
       >
-        {/* ── Left Sidebar ── */}
+        {/* â”€â”€ Left Sidebar â”€â”€ */}
         <aside
           className="w-56 flex-shrink-0 flex flex-col py-6 px-3 theme-transition"
           style={{
@@ -141,7 +141,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           </button>
         </aside>
 
-        {/* ── Right Content ── */}
+        {/* â”€â”€ Right Content â”€â”€ */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Top bar with close */}
           <div
@@ -176,7 +176,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   )
 }
 
-/* ─── Profile Section ────────────────────────────────────────────────── */
+/* â”€â”€â”€ Profile Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ProfileSection: React.FC = () => {
   const [displayName, setDisplayName] = useState("Shudharshan")
   const [email] = useState("shudharshan@movieagent.io")
@@ -253,7 +253,7 @@ const ProfileSection: React.FC = () => {
   )
 }
 
-/* ─── Appearance Section ─────────────────────────────────────────────── */
+/* â”€â”€â”€ Appearance Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const AppearanceSection: React.FC<{ theme: Theme; setTheme: (t: Theme) => void }> = ({
   theme,
   setTheme,
@@ -397,7 +397,7 @@ const AppearanceSection: React.FC<{ theme: Theme; setTheme: (t: Theme) => void }
   )
 }
 
-/* ─── Notifications Section ──────────────────────────────────────────── */
+/* â”€â”€â”€ Notifications Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const NotificationsSection: React.FC = () => {
   const [prefs, setPrefs] = useState({
     projectUpdates: true,
@@ -435,7 +435,7 @@ const NotificationsSection: React.FC = () => {
   )
 }
 
-/* ─── Privacy Section ────────────────────────────────────────────────── */
+/* â”€â”€â”€ Privacy Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const PrivacySection: React.FC = () => {
   const [publicProfile, setPublicProfile] = useState(false)
   const [analyticsConsent, setAnalyticsConsent] = useState(true)
@@ -493,7 +493,7 @@ const PrivacySection: React.FC = () => {
   )
 }
 
-/* ─── Shortcuts Section ──────────────────────────────────────────────── */
+/* â”€â”€â”€ Shortcuts Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ShortcutsSection: React.FC = () => (
   <div className="space-y-2">
     {SHORTCUTS.map((s, i) => (
@@ -530,7 +530,7 @@ const ShortcutsSection: React.FC = () => (
   </div>
 )
 
-/* ─── Shared UI Atoms ────────────────────────────────────────────────── */
+/* â”€â”€â”€ Shared UI Atoms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div>
     <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--t-text-3)" }}>

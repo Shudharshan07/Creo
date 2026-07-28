@@ -21,14 +21,13 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
 
   useEffect(() => {
     let isActive = true
-    setIsLoading(true)
-    setError(null)
 
     listProjects(token)
       .then((projects) => {
         if (!isActive) return
         setProjectsList(projects)
         setSelectedProjectId((current) => current || projects[0]?.id || "")
+        if (projects[0]) onSelectProject?.(projects[0])
       })
       .catch((err) => {
         if (!isActive) return
@@ -41,7 +40,7 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [onSelectProject, token])
 
   const filteredProjects = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -73,7 +72,6 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
     if (!title) return
 
     setIsCreating(true)
-    setError(null)
     try {
       const project = await createProject(token, {
         title,

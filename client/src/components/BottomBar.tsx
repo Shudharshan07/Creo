@@ -8,13 +8,14 @@ interface BottomBarProps {
   onZoomReset: () => void
   onFullscreen?: () => void
   onHome: () => void
+  onSubmitPrompt: (prompt: string) => void
+  disabled?: boolean
 }
 
 const panelStyle: React.CSSProperties = {
   backgroundColor: "var(--t-bg-surface)",
   border: "1px solid var(--t-border)",
 }
-
 
 export const BottomBar: React.FC<BottomBarProps> = ({
   zoom,
@@ -23,14 +24,17 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   onZoomReset,
   onFullscreen,
   onHome,
+  onSubmitPrompt,
+  disabled = false,
 }) => {
   const [prompt, setPrompt] = useState("")
 
   const handleSend = useCallback(() => {
-    if (!prompt.trim()) return
-    console.log("Prompt:", prompt)
+    const nextPrompt = prompt.trim()
+    if (!nextPrompt || disabled) return
+    onSubmitPrompt(nextPrompt)
     setPrompt("")
-  }, [prompt])
+  }, [disabled, onSubmitPrompt, prompt])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -42,21 +46,17 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     [handleSend]
   )
 
-
   return (
     <div
       className="absolute bottom-6 left-6 right-6 z-30 grid items-center pointer-events-none"
       style={{ gridTemplateColumns: "1fr auto 1fr" }}
     >
-      {/* Left spacer */}
       <div />
 
-      {/* Center: Prompt Input */}
       <div
         className="pointer-events-auto flex items-center gap-3 rounded-2xl shadow-2xl px-3 py-2.5 w-[520px] max-w-[60vw] theme-transition"
         style={panelStyle}
       >
-        {/* Spark badge */}
         <div
           className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
           style={{ backgroundColor: "var(--t-accent)" }}
@@ -66,33 +66,28 @@ export const BottomBar: React.FC<BottomBarProps> = ({
           </svg>
         </div>
 
-        {/* Input */}
         <input
           type="text"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Tell the crew what to build next..."
+          placeholder={disabled ? "Create or select a project first..." : "Tell the agents what to do next..."}
           className="flex-1 bg-transparent text-sm outline-none min-w-0 theme-transition"
-          style={{
-            color: "var(--t-text-1)",
-          }}
+          style={{ color: "var(--t-text-1)" }}
         />
 
-        {/* Send */}
         <button
           onClick={handleSend}
-          disabled={!prompt.trim()}
-          className="flex-shrink-0 text-sm font-medium transition-colors cursor-pointer px-1 theme-transition"
+          disabled={disabled || !prompt.trim()}
+          className="flex-shrink-0 text-sm font-medium transition-colors cursor-pointer px-1 theme-transition disabled:cursor-not-allowed"
           style={{
-            color: prompt.trim() ? "var(--t-text-2)" : "var(--t-text-4)",
+            color: !disabled && prompt.trim() ? "var(--t-text-2)" : "var(--t-text-4)",
           }}
         >
           Send
         </button>
       </div>
 
-      {/* Right: Zoom Controls */}
       <div className="flex justify-end">
         <div
           className="pointer-events-auto flex items-center gap-1 rounded-2xl shadow-2xl px-3 py-2.5 theme-transition"

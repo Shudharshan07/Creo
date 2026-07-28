@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
+from app.routers import auth, projects, scripts, casting, assets, crew
 
 
 @asynccontextmanager
@@ -27,7 +28,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+app.include_router(projects.router)
+app.include_router(scripts.router)
+app.include_router(casting.router)
+app.include_router(assets.router)
+app.include_router(crew.router)
 
-@app.get("/health")
+
+@app.get("/health", tags=["Health"])
 async def health():
     return {"status": "ok"}

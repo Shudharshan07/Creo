@@ -1,4 +1,4 @@
-﻿import React, { forwardRef, useImperativeHandle, useRef } from "react"
+import React, { forwardRef, useImperativeHandle, useRef } from "react"
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch"
 import AgentNodesOverlay from "./AgentNodesOverlay"
 import { type AgentNode } from "../types/agent"
@@ -10,6 +10,9 @@ interface InfiniteDotCanvasProps {
   agentNodes?: AgentNode[]
   onStopAgent?: (id: string) => void
   onMoveNode?: (id: string, x: number, y: number) => void
+  onEditBatchPrompt?: (batchId: string, prompt: string) => void
+  onDeleteBatch?: (batchId: string) => void
+  onMessageAgent?: (id: string, message: string) => void
 }
 
 export interface InfiniteDotCanvasHandle {
@@ -39,7 +42,7 @@ const DotGrid: React.FC = () => {
 }
 
 export const InfiniteDotCanvas = forwardRef<InfiniteDotCanvasHandle, InfiniteDotCanvasProps>(
-  ({ zoom, onZoomChange, agentNodes = [], onStopAgent, onMoveNode }, ref) => {
+  ({ zoom, onZoomChange, agentNodes = [], onStopAgent, onMoveNode, onEditBatchPrompt, onDeleteBatch, onMessageAgent }, ref) => {
     const transformRef = useRef<ReactZoomPanPinchRef>(null)
 
     useImperativeHandle(ref, () => ({
@@ -71,6 +74,9 @@ export const InfiniteDotCanvas = forwardRef<InfiniteDotCanvasHandle, InfiniteDot
             nodes={agentNodes}
             onStopAgent={onStopAgent ?? (() => {})}
             onMoveNode={onMoveNode ?? (() => {})}
+            onEditBatchPrompt={onEditBatchPrompt ?? (() => {})}
+            onDeleteBatch={onDeleteBatch ?? (() => {})}
+            onMessageAgent={onMessageAgent ?? (() => {})}
             zoom={zoom}
           />
         </TransformComponent>

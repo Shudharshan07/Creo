@@ -1,4 +1,4 @@
-﻿export interface Project {
+export interface Project {
   id: string
   title: string
   genre?: string | null
@@ -26,4 +26,11 @@ export interface ProjectCreateInput {
   title: string
   genre?: string | null
   logline?: string | null
+}
+
+export interface ProjectUpdateInput {
+  title?: string | null
+  genre?: string | null
+  logline?: string | null
+  status?: string | null
 }

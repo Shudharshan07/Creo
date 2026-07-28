@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.asset import AssetSearchRequest, AssetOut
 from app.auth.jwt import get_current_user
 from app.services.asset_service import search_assets
+from app.services.project_service import touch_project
 
 router = APIRouter(prefix="/projects/{project_id}/assets", tags=["Assets"])
 
@@ -31,13 +32,15 @@ async def list_assets(project_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 @router.post("/search", response_model=list[AssetOut], status_code=201)
 async def search_and_save_assets(project_id: uuid.UUID, body: AssetSearchRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    await _get_project_or_404(project_id, current_user, db)
+    project = await _get_project_or_404(project_id, current_user, db)
     assets_data = await search_assets(body.query, body.asset_type, body.limit)
     saved = []
     for a in assets_data:
         asset = Asset(**a, project_id=project_id)
         db.add(asset)
         saved.append(asset)
+    if saved:
+        touch_project(project)
     await db.commit()
     for a in saved:
         await db.refresh(a)
@@ -46,10 +49,11 @@ async def search_and_save_assets(project_id: uuid.UUID, body: AssetSearchRequest
 
 @router.delete("/{asset_id}", status_code=204)
 async def delete_asset(project_id: uuid.UUID, asset_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    await _get_project_or_404(project_id, current_user, db)
+    project = await _get_project_or_404(project_id, current_user, db)
     result = await db.execute(select(Asset).where(Asset.id == asset_id, Asset.project_id == project_id))
     asset = result.scalar_one_or_none()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     await db.delete(asset)
+    touch_project(project)
     await db.commit()

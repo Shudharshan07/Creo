@@ -1,14 +1,15 @@
-﻿import React, { useState, useMemo, memo, useCallback, useEffect } from "react"
+import React, { useState, useMemo, memo, useCallback, useEffect } from "react"
 import { type Project } from "../types/project"
-import { createProject, listProjects } from "../lib/api"
-import { FolderKanban, Loader2, Plus, X } from "lucide-react"
+import { createProject, deleteProject, listProjects, updateProject } from "../lib/api"
+import { Ellipsis, FolderKanban, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 
 interface ProjectsOverlayProps {
   token: string
-  onSelectProject?: (project: Project) => void
+  selectedProjectId?: string | null
+  onSelectProject?: (project: Project | null) => void
 }
 
-export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelectProject }) => {
+export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, selectedProjectId: activeProjectId, onSelectProject }) => {
   const [isOpen, setIsOpen] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [projectsList, setProjectsList] = useState<Project[]>([])
@@ -16,6 +17,8 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
+  const [menuProjectId, setMenuProjectId] = useState<string | null>(null)
+  const [isMutatingProject, setIsMutatingProject] = useState(false)
   const [newTitle, setNewTitle] = useState("")
   const [newGenre, setNewGenre] = useState("")
 
@@ -26,8 +29,12 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
       .then((projects) => {
         if (!isActive) return
         setProjectsList(projects)
-        setSelectedProjectId((current) => current || projects[0]?.id || "")
-        if (projects[0]) onSelectProject?.(projects[0])
+        setSelectedProjectId((current) => {
+          const nextId = current || activeProjectId || projects[0]?.id || ""
+          const nextProject = projects.find((project) => project.id === nextId) ?? projects[0]
+          if (nextProject) onSelectProject?.(nextProject)
+          return nextProject?.id ?? ""
+        })
       })
       .catch((err) => {
         if (!isActive) return
@@ -40,7 +47,12 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
     return () => {
       isActive = false
     }
-  }, [onSelectProject, token])
+  }, [activeProjectId, onSelectProject, token])
+
+  useEffect(() => {
+    if (!activeProjectId) return
+    setSelectedProjectId(activeProjectId)
+  }, [activeProjectId])
 
   const filteredProjects = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -88,6 +100,50 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
       setIsCreating(false)
     }
   }, [newGenre, newTitle, onSelectProject, token])
+
+  const handleRenameProject = useCallback(async (project: Project) => {
+    const nextTitle = window.prompt("Rename project", project.title)?.trim()
+    setMenuProjectId(null)
+    if (!nextTitle || nextTitle === project.title) return
+
+    setIsMutatingProject(true)
+    setError(null)
+    try {
+      const updatedProject = await updateProject(token, project.id, { title: nextTitle })
+      setProjectsList((projects) => projects.map((item) => item.id === project.id ? updatedProject : item))
+      if (selectedProjectId === project.id) {
+        onSelectProject?.(updatedProject)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to rename project")
+    } finally {
+      setIsMutatingProject(false)
+    }
+  }, [onSelectProject, selectedProjectId, token])
+
+  const handleDeleteProject = useCallback(async (project: Project) => {
+    const shouldDelete = window.confirm(`Delete "${project.title}"?`)
+    setMenuProjectId(null)
+    if (!shouldDelete) return
+
+    setIsMutatingProject(true)
+    setError(null)
+    try {
+      await deleteProject(token, project.id)
+      const remainingProjects = projectsList.filter((item) => item.id !== project.id)
+      setProjectsList(remainingProjects)
+
+      if (selectedProjectId === project.id) {
+        const nextProject = remainingProjects[0] ?? null
+        setSelectedProjectId(nextProject?.id ?? "")
+        onSelectProject?.(nextProject)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete project")
+    } finally {
+      setIsMutatingProject(false)
+    }
+  }, [onSelectProject, projectsList, selectedProjectId, token])
 
   return (
     <div className="relative z-40">
@@ -222,12 +278,22 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
                 Loading projects
               </div>
             )}
+            {isMutatingProject && !isLoading && (
+              <div className="pb-2 flex items-center gap-2 text-xs" style={{ color: "var(--t-text-3)" }}>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Updating project
+              </div>
+            )}
             {recentProjects.length > 0 && (
               <ProjectGroupSection
                 title="Recent"
                 projects={recentProjects}
                 selectedProjectId={selectedProjectId}
                 onSelect={handleSelect}
+                menuProjectId={menuProjectId}
+                onToggleMenu={setMenuProjectId}
+                onRename={handleRenameProject}
+                onDelete={handleDeleteProject}
               />
             )}
             {thisYearProjects.length > 0 && (
@@ -236,6 +302,10 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
                 projects={thisYearProjects}
                 selectedProjectId={selectedProjectId}
                 onSelect={handleSelect}
+                menuProjectId={menuProjectId}
+                onToggleMenu={setMenuProjectId}
+                onRename={handleRenameProject}
+                onDelete={handleDeleteProject}
               />
             )}
             {examplesProjects.length > 0 && (
@@ -244,6 +314,10 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelec
                 projects={examplesProjects}
                 selectedProjectId={selectedProjectId}
                 onSelect={handleSelect}
+                menuProjectId={menuProjectId}
+                onToggleMenu={setMenuProjectId}
+                onRename={handleRenameProject}
+                onDelete={handleDeleteProject}
               />
             )}
             {!isLoading && filteredProjects.length === 0 && (
@@ -263,6 +337,10 @@ interface ProjectGroupSectionProps {
   projects: Project[]
   selectedProjectId: string
   onSelect: (project: Project) => void
+  menuProjectId: string | null
+  onToggleMenu: (projectId: string | null) => void
+  onRename: (project: Project) => void
+  onDelete: (project: Project) => void
 }
 
 const ProjectGroupSection: React.FC<ProjectGroupSectionProps> = memo(({
@@ -270,6 +348,10 @@ const ProjectGroupSection: React.FC<ProjectGroupSectionProps> = memo(({
   projects,
   selectedProjectId,
   onSelect,
+  menuProjectId,
+  onToggleMenu,
+  onRename,
+  onDelete,
 }) => {
   return (
     <div>
@@ -349,6 +431,43 @@ const ProjectGroupSection: React.FC<ProjectGroupSectionProps> = memo(({
                   )}
                 </div>
               </div>
+
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleMenu(menuProjectId === project.id ? null : project.id)
+                  }}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors theme-transition"
+                  style={{ color: "var(--t-text-3)" }}
+                  title="Project options"
+                >
+                  <Ellipsis className="w-4 h-4" />
+                </button>
+
+                {menuProjectId === project.id && (
+                  <div
+                    className="absolute right-0 top-9 z-20 w-40 rounded-2xl shadow-2xl py-1.5"
+                    style={{
+                      backgroundColor: "var(--t-bg-elevated)",
+                      border: "1px solid var(--t-border)",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ProjectMenuItem
+                      label="Rename"
+                      icon={<Pencil className="w-4 h-4" />}
+                      onClick={() => onRename(project)}
+                    />
+                    <ProjectMenuItem
+                      label="Delete"
+                      icon={<Trash2 className="w-4 h-4" />}
+                      onClick={() => onDelete(project)}
+                      danger
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )
         })}
@@ -358,5 +477,29 @@ const ProjectGroupSection: React.FC<ProjectGroupSectionProps> = memo(({
 })
 
 ProjectGroupSection.displayName = "ProjectGroupSection"
+
+const ProjectMenuItem: React.FC<{
+  label: string
+  icon: React.ReactNode
+  onClick: () => void
+  danger?: boolean
+}> = ({ label, icon, onClick, danger = false }) => (
+  <button
+    onClick={onClick}
+    className="w-full text-left px-3 py-2 flex items-center gap-2 text-xs transition-colors"
+    style={{ color: danger ? "var(--t-danger)" : "var(--t-text-2)" }}
+    onMouseEnter={(e) => {
+      (e.currentTarget as HTMLButtonElement).style.backgroundColor = danger
+        ? "rgba(248,113,113,0.08)"
+        : "var(--t-bg-hover)"
+    }}
+    onMouseLeave={(e) => {
+      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent"
+    }}
+  >
+    {icon}
+    <span>{label}</span>
+  </button>
+)
 
 export default ProjectsOverlay

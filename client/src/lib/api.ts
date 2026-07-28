@@ -1,4 +1,4 @@
-﻿import { type Project, type ProjectCreateInput, type ServerProject } from "../types/project"
+import { type Project, type ProjectCreateInput, type ProjectUpdateInput, type ServerProject } from "../types/project"
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api"
 const TOKEN_STORAGE_KEY = "movie_agent_access_token"
@@ -138,6 +138,22 @@ export async function createProject(token: string, input: ProjectCreateInput): P
     body: JSON.stringify(input),
   })
   return toClientProject(project)
+}
+
+export async function updateProject(token: string, projectId: string, input: ProjectUpdateInput): Promise<Project> {
+  const project = await request<ServerProject>(`/projects/${projectId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(input),
+  })
+  return toClientProject(project)
+}
+
+export async function deleteProject(token: string, projectId: string): Promise<void> {
+  await request<void>(`/projects/${projectId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  })
 }
 
 export async function generateScript(token: string, projectId: string, prompt: string, signal?: AbortSignal) {

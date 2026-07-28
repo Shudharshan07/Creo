@@ -1,7 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import desc, select
 
 from app.database import get_db
 from app.models.project import Project
@@ -23,7 +23,11 @@ async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)
 
 @router.get("", response_model=list[ProjectOut])
 async def list_projects(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Project).where(Project.owner_id == current_user.id))
+    result = await db.execute(
+        select(Project)
+        .where(Project.owner_id == current_user.id)
+        .order_by(desc(Project.updated_at), desc(Project.created_at))
+    )
     return result.scalars().all()
 
 

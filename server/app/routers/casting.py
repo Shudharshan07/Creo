@@ -9,6 +9,7 @@ from app.models.project import Project
 from app.models.user import User
 from app.schemas.casting import CastingCallCreate, CastingCallUpdate, CastingCallOut
 from app.auth.jwt import get_current_user
+from app.services.project_service import touch_project
 from app.services.casting_service import generate_casting_poster
 
 router = APIRouter(prefix="/projects/{project_id}/casting", tags=["Casting"])
@@ -35,6 +36,7 @@ async def create_casting_call(project_id: uuid.UUID, body: CastingCallCreate, db
     poster_text = await generate_casting_poster(body, project)
     call = CastingCall(**body.model_dump(), project_id=project_id, poster_text=poster_text)
     db.add(call)
+    touch_project(project)
     await db.commit()
     await db.refresh(call)
     return call
@@ -42,13 +44,14 @@ async def create_casting_call(project_id: uuid.UUID, body: CastingCallCreate, db
 
 @router.patch("/{call_id}", response_model=CastingCallOut)
 async def update_casting_call(project_id: uuid.UUID, call_id: uuid.UUID, body: CastingCallUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    await _get_project_or_404(project_id, current_user, db)
+    project = await _get_project_or_404(project_id, current_user, db)
     result = await db.execute(select(CastingCall).where(CastingCall.id == call_id, CastingCall.project_id == project_id))
     call = result.scalar_one_or_none()
     if not call:
         raise HTTPException(status_code=404, detail="Casting call not found")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(call, field, value)
+    touch_project(project)
     await db.commit()
     await db.refresh(call)
     return call
@@ -56,10 +59,11 @@ async def update_casting_call(project_id: uuid.UUID, call_id: uuid.UUID, body: C
 
 @router.delete("/{call_id}", status_code=204)
 async def delete_casting_call(project_id: uuid.UUID, call_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    await _get_project_or_404(project_id, current_user, db)
+    project = await _get_project_or_404(project_id, current_user, db)
     result = await db.execute(select(CastingCall).where(CastingCall.id == call_id, CastingCall.project_id == project_id))
     call = result.scalar_one_or_none()
     if not call:
         raise HTTPException(status_code=404, detail="Casting call not found")
     await db.delete(call)
+    touch_project(project)
     await db.commit()

@@ -15,4 +15,9 @@ Compensation: {casting_call.compensation_notes or 'to be discussed'}
 Write a concise, compelling casting notice (150-250 words) that directors would post on casting platforms.
 Include role overview, what you're looking for, and how to apply.
 """
-    return await run_adk_agent(name="casting_agent", instruction=instruction, prompt=prompt)
+    return await run_adk_agent(
+        name="casting_agent",
+        instruction=instruction,
+        prompt=prompt,
+        project_id=str(project.id),
+    )

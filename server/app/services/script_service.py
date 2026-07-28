@@ -21,7 +21,12 @@ CHARACTERS:
 NOTES:
 <brief director notes and suggestions>
 """
-    text = await run_adk_agent(name="screenwriter_agent", instruction=instruction, prompt=full_prompt)
+    text = await run_adk_agent(
+        name="screenwriter_agent",
+        instruction=instruction,
+        prompt=full_prompt,
+        project_id=str(project.id),
+    )
 
     def extract(marker_start, marker_end):
         try:

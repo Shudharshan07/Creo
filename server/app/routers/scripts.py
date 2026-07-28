@@ -9,6 +9,7 @@ from app.models.project import Project
 from app.models.user import User
 from app.schemas.script import ScriptCreate, ScriptGenerateRequest, ScriptOut
 from app.auth.jwt import get_current_user
+from app.services.project_service import touch_project
 from app.services.script_service import generate_script
 
 router = APIRouter(prefix="/projects/{project_id}/scripts", tags=["Scripts"])
@@ -31,11 +32,12 @@ async def list_scripts(project_id: uuid.UUID, db: AsyncSession = Depends(get_db)
 
 @router.post("", response_model=ScriptOut, status_code=201)
 async def create_script(project_id: uuid.UUID, body: ScriptCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    await _get_project_or_404(project_id, current_user, db)
+    project = await _get_project_or_404(project_id, current_user, db)
     version_result = await db.execute(select(func.count()).where(Script.project_id == project_id))
     version = (version_result.scalar() or 0) + 1
     script = Script(**body.model_dump(), project_id=project_id, version=version)
     db.add(script)
+    touch_project(project)
     await db.commit()
     await db.refresh(script)
     return script
@@ -49,6 +51,7 @@ async def generate_script_endpoint(project_id: uuid.UUID, body: ScriptGenerateRe
     script_data = await generate_script(body.prompt, project)
     script = Script(project_id=project_id, version=version, **script_data)
     db.add(script)
+    touch_project(project)
     await db.commit()
     await db.refresh(script)
     return script

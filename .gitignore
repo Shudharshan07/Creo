@@ -1,0 +1,38 @@
+### --- VS Code ---
+.vscode/
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+*.code-workspace
+
+### --- Kiro / Text Editors ---
+.kiro/
+*~
+*.bak
+*.swp
+
+### --- Codex / AI Tools ---
+.codex/
+.ai-cache/
+.copilot-history/
+*.log
+
+### --- Antigravity ---
+# Standard Python dependencies and byte-code
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+env/
+venv/
+
+### --- General Stuff ---
+.DS_Store
+Thumbs.db
+node_modules/
+.sass-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

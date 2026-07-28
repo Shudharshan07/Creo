@@ -1,16 +1,47 @@
-import React, { useState, useMemo, memo, useCallback } from "react"
+﻿import React, { useState, useMemo, memo, useCallback, useEffect } from "react"
 import { type Project } from "../types/project"
-import { INITIAL_PROJECTS } from "../data/mockProjects"
+import { createProject, listProjects } from "../lib/api"
+import { FolderKanban, Loader2, Plus, X } from "lucide-react"
 
 interface ProjectsOverlayProps {
+  token: string
   onSelectProject?: (project: Project) => void
 }
 
-export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ onSelectProject }) => {
+export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, onSelectProject }) => {
   const [isOpen, setIsOpen] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>("")
-  const [projectsList] = useState<Project[]>(INITIAL_PROJECTS)
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("proj-1")
+  const [projectsList, setProjectsList] = useState<Project[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [newTitle, setNewTitle] = useState("")
+  const [newGenre, setNewGenre] = useState("")
+
+  useEffect(() => {
+    let isActive = true
+    setIsLoading(true)
+    setError(null)
+
+    listProjects(token)
+      .then((projects) => {
+        if (!isActive) return
+        setProjectsList(projects)
+        setSelectedProjectId((current) => current || projects[0]?.id || "")
+      })
+      .catch((err) => {
+        if (!isActive) return
+        setError(err instanceof Error ? err.message : "Unable to load projects")
+      })
+      .finally(() => {
+        if (isActive) setIsLoading(false)
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [token])
 
   const filteredProjects = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -36,6 +67,30 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ onSelectProjec
     onSelectProject?.(project)
   }, [onSelectProject])
 
+  const handleCreateProject = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const title = newTitle.trim()
+    if (!title) return
+
+    setIsCreating(true)
+    setError(null)
+    try {
+      const project = await createProject(token, {
+        title,
+        genre: newGenre.trim() || null,
+      })
+      setProjectsList((projects) => [project, ...projects])
+      setSelectedProjectId(project.id)
+      setNewTitle("")
+      setNewGenre("")
+      onSelectProject?.(project)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create project")
+    } finally {
+      setIsCreating(false)
+    }
+  }, [newGenre, newTitle, onSelectProject, token])
+
   return (
     <div className="relative z-40">
       {/* Toggle button */}
@@ -50,20 +105,7 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ onSelectProjec
         onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--t-bg-hover)" }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--t-bg-elevated)" }}
       >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          style={{ color: "var(--t-accent)" }}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9 6 9-6"
-          />
-        </svg>
+        <FolderKanban className="w-4 h-4" style={{ color: "var(--t-accent)" }} />
         <span>My Projects</span>
         <svg
           className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
@@ -122,13 +164,66 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ onSelectProjec
                 className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs theme-transition"
                 style={{ color: "var(--t-text-3)" }}
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
+          <form onSubmit={handleCreateProject} className="mb-5 space-y-2">
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="New film project"
+              className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none focus:ring-2 transition-colors theme-transition"
+              style={{
+                backgroundColor: "var(--t-bg-input)",
+                border: "1px solid var(--t-border)",
+                color: "var(--t-text-1)",
+              }}
+            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newGenre}
+                onChange={(e) => setNewGenre(e.target.value)}
+                placeholder="Genre"
+                className="min-w-0 flex-1 px-3.5 py-2 rounded-xl text-xs outline-none focus:ring-2 transition-colors theme-transition"
+                style={{
+                  backgroundColor: "var(--t-bg-input)",
+                  border: "1px solid var(--t-border)",
+                  color: "var(--t-text-1)",
+                }}
+              />
+              <button
+                type="submit"
+                disabled={isCreating || !newTitle.trim()}
+                className="w-10 h-10 rounded-xl flex items-center justify-center disabled:opacity-60"
+                style={{ backgroundColor: "var(--t-accent)", color: "var(--t-accent-fg)" }}
+                title="Create project"
+              >
+                {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              </button>
+            </div>
+          </form>
+
+          {error && (
+            <div
+              className="rounded-xl px-3 py-2 text-xs mb-4"
+              style={{ color: "var(--t-danger)", backgroundColor: "rgba(248,113,113,0.08)" }}
+            >
+              {error}
+            </div>
+          )}
+
           {/* Sections */}
           <div className="space-y-6">
+            {isLoading && (
+              <div className="py-8 flex items-center justify-center gap-2 text-xs" style={{ color: "var(--t-text-3)" }}>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading projects
+              </div>
+            )}
             {recentProjects.length > 0 && (
               <ProjectGroupSection
                 title="Recent"
@@ -153,9 +248,9 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ onSelectProjec
                 onSelect={handleSelect}
               />
             )}
-            {filteredProjects.length === 0 && (
+            {!isLoading && filteredProjects.length === 0 && (
               <div className="py-8 text-center text-xs" style={{ color: "var(--t-text-4)" }}>
-                No projects found matching &quot;{searchQuery}&quot;
+                {searchQuery ? `No projects found matching "${searchQuery}"` : "No projects yet"}
               </div>
             )}
           </div>
@@ -238,6 +333,12 @@ const ProjectGroupSection: React.FC<ProjectGroupSectionProps> = memo(({
                     )}
                     <span>{project.updatedAt}</span>
                   </span>
+
+                  {project.genre && (
+                    <span className="truncate" style={{ color: "var(--t-text-2)" }}>
+                      {project.genre}
+                    </span>
+                  )}
 
                   {project.isShared && (
                     <span className="flex items-center gap-1" style={{ color: "var(--t-text-2)" }}>

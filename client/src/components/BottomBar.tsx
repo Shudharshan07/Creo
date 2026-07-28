@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react"
+﻿import React, { useState, useCallback } from "react"
 import { ZoomIn, ZoomOut, Maximize2, Home } from "lucide-react"
 
 interface BottomBarProps {
@@ -15,8 +15,6 @@ const panelStyle: React.CSSProperties = {
   border: "1px solid var(--t-border)",
 }
 
-const iconBtnClass =
-  "w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer theme-transition"
 
 export const BottomBar: React.FC<BottomBarProps> = ({
   zoom,
@@ -44,10 +42,6 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     [handleSend]
   )
 
-  const iconStyle = (hovered: boolean): React.CSSProperties => ({
-    color: hovered ? "var(--t-text-1)" : "var(--t-text-3)",
-    backgroundColor: hovered ? "var(--t-bg-hover)" : "transparent",
-  })
 
   return (
     <div

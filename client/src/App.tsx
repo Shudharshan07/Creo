@@ -1,10 +1,12 @@
-import React, { useState, useRef, useCallback } from "react"
+﻿import { useState, useRef, useCallback } from "react"
 import InfiniteDotCanvas, { type InfiniteDotCanvasHandle } from "./components/InfiniteDotCanvas"
 import ProjectsOverlay from "./components/ProjectsOverlay"
 import ProfileButton from "./components/ProfileButton"
 import BottomBar from "./components/BottomBar"
 import AccountSettingsModal from "./components/AccountSettingsModal"
 import { LandingPage } from "./components/LandingPage"
+import AuthGate from "./components/AuthGate"
+import { clearSession, getStoredSession } from "./lib/api"
 import { LayoutGrid } from "lucide-react"
 
 const ZOOM_STEP = 0.15
@@ -12,6 +14,7 @@ const MIN_ZOOM = 0.1
 const MAX_ZOOM = 4
 
 function App() {
+  const [session, setSession] = useState(() => getStoredSession())
   const [viewMode, setViewMode] = useState<"studio" | "landing">("studio")
   const [zoom, setZoom] = useState(1)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -37,6 +40,15 @@ function App() {
     }
   }, [])
 
+  const handleSignOut = useCallback(() => {
+    clearSession()
+    setSession({ token: null, email: null })
+  }, [])
+
+  if (!session.token) {
+    return <AuthGate onAuthenticated={(token, email) => setSession({ token, email })} />
+  }
+
   if (viewMode === "landing") {
     return <LandingPage onEnterStudio={() => setViewMode("studio")} />
   }
@@ -49,7 +61,7 @@ function App() {
       {/* Top Header Bar */}
       <div className="absolute top-6 left-6 right-6 z-30 flex items-center justify-between pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-3">
-          <ProjectsOverlay />
+          <ProjectsOverlay token={session.token} />
           <button
             onClick={() => setViewMode("landing")}
             className="flex items-center gap-2 border px-3 py-2 rounded-2xl shadow-xl transition-colors cursor-pointer font-semibold text-xs theme-transition"
@@ -67,7 +79,11 @@ function App() {
           </button>
         </div>
         <div className="pointer-events-auto">
-          <ProfileButton onOpenSettings={() => setSettingsOpen(true)} />
+          <ProfileButton
+            email={session.email ?? undefined}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onSignOut={handleSignOut}
+          />
         </div>
       </div>
 

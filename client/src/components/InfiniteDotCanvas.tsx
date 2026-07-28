@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react"
+﻿import React, { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react"
 
 interface InfiniteDotCanvasProps {
   dotSpacing?: number
@@ -199,11 +199,6 @@ export const InfiniteDotCanvas = forwardRef<InfiniteDotCanvasHandle, InfiniteDot
 
     const handleTouchEnd = useCallback(() => { isDraggingRef.current = false }, [])
 
-    const handleReset = useCallback(() => {
-      offsetRef.current = { x: 0, y: 0 }
-      onZoomChange(1)
-      dirtyRef.current = true
-    }, [onZoomChange])
 
     return (
       <div className="relative w-screen h-screen overflow-hidden bg-[#0B0C10] select-none">

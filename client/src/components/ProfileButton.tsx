@@ -1,12 +1,17 @@
-import React, { useState, useRef, useEffect } from "react"
+﻿import React, { useState, useRef, useEffect } from "react"
 
 interface ProfileButtonProps {
   onOpenSettings?: () => void
+  onSignOut?: () => void
+  email?: string
 }
 
-export const ProfileButton: React.FC<ProfileButtonProps> = ({ onOpenSettings }) => {
+export const ProfileButton: React.FC<ProfileButtonProps> = ({ onOpenSettings, onSignOut, email }) => {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const displayEmail = email ?? "director@movieagent.io"
+  const displayName = displayEmail.split("@")[0] || "Director"
+  const initial = displayName[0]?.toUpperCase() ?? "D"
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -36,7 +41,7 @@ export const ProfileButton: React.FC<ProfileButtonProps> = ({ onOpenSettings }) 
         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--t-bg-elevated)" }}
       >
         <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-inner">
-          S
+          {initial}
           <span
             className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2"
             style={{
@@ -46,7 +51,7 @@ export const ProfileButton: React.FC<ProfileButtonProps> = ({ onOpenSettings }) 
           />
         </div>
         <span className="text-xs font-medium pr-1 hidden sm:inline" style={{ color: "var(--t-text-1)" }}>
-          Shudharshan
+          {displayName}
         </span>
         <svg
           className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
@@ -73,9 +78,9 @@ export const ProfileButton: React.FC<ProfileButtonProps> = ({ onOpenSettings }) 
             className="px-4 py-3"
             style={{ borderBottom: "1px solid var(--t-border)" }}
           >
-            <p className="font-semibold" style={{ color: "var(--t-text-1)" }}>Shudharshan</p>
+            <p className="font-semibold" style={{ color: "var(--t-text-1)" }}>{displayName}</p>
             <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--t-text-4)" }}>
-              shudharshan@movieagent.io
+              {displayEmail}
             </p>
           </div>
 
@@ -107,7 +112,7 @@ export const ProfileButton: React.FC<ProfileButtonProps> = ({ onOpenSettings }) 
 
           <div style={{ borderTop: "1px solid var(--t-border)", paddingTop: "4px" }}>
             <DropdownItem
-              onClick={() => setIsOpen(false)}
+              onClick={() => { setIsOpen(false); onSignOut?.() }}
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

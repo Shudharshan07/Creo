@@ -51,11 +51,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio, onLogin
       >
         <div className="flex items-center space-x-8">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={onEnterStudio}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#3B82F6] via-[#8B5CF6] to-[#EC4899] flex items-center justify-center text-white shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#00000] via-[#000000] to-[#FFFFFF] flex items-center justify-center text-white shadow-sm">
               <Clapperboard className="w-4 h-4" />
             </div>
             <span className="font-bold text-lg tracking-tight" style={{ color: 'var(--t-text-1)' }}>
-              Movie Agent
+              Creo Studio
             </span>
           </div>
 
@@ -120,7 +120,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio, onLogin
               color: 'var(--t-accent-fg)'
             }}
           >
-            v1.4 Live
+            v1.4
           </span>
         </div>
 
@@ -280,7 +280,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio, onLogin
             No fragmented tools. Script, casting, media, and crew management work in real-time sync.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 text-left">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 text-left">
             <div 
               className="p-6 rounded-2xl border transition-shadow theme-transition"
               style={{
@@ -392,9 +392,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio, onLogin
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
             <Clapperboard className="w-4 h-4 text-[#8B5CF6]" />
-            <span className="font-bold" style={{ color: 'var(--t-text-1)' }}>Movie Agent Platform</span>
+            <span className="font-bold" style={{ color: 'var(--t-text-1)' }}>Creo Studio Platform</span>
           </div>
-          <p>© 2026 Movie Agent Inc. Built for directors & creative teams.</p>
+          <p>© 2026 Creo Studio Inc. Built for directors & creative teams.</p>
         </div>
       </footer>
     </div>

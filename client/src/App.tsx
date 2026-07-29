@@ -18,7 +18,6 @@ import {
 } from "./lib/api"
 import { type AgentKind, type AgentNode } from "./types/agent"
 import { type Project } from "./types/project"
-import { LayoutGrid } from "lucide-react"
 
 const PROJECT_HISTORY_STORAGE_KEY = "movie_agent_project_history"
 const CHILD_NODE_X_OFFSET = 320
@@ -144,7 +143,7 @@ function App() {
 
       updateAgentNode(node.id, {
         status: "running",
-        summary: `Searching Pixabay for photos matching script & location context...`,
+        summary: runningSummaryForKind(node.kind),
         progress: 35,
         error: undefined,
       })
@@ -317,11 +316,11 @@ function App() {
 
     const workerKinds: AgentKind[] = ["script", "casting", "location", "music", "crew", "assets"]
     const plannerSummary = `Dispatching ${workerKinds.length} agents in parallel for "${project.title}".`
-    // Generous initial spacing — overlay will reflow based on actual heights
+    // Generous initial spacing ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â overlay will reflow based on actual heights
     const workerSpacing = 500
 
     // Left-to-right: planner on the left, workers stacked to the right
-    // Workers sit 600px to the right of the planner center — real gap handled by overlay
+    // Workers sit 600px to the right of the planner center ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â real gap handled by overlay
     const newNodes: AgentNode[] = [
       createNode(plannerId, batchId, "planner", "Planner", prompt, "done", bx - 420, by, startedAt, plannerSummary),
       ...workerKinds.map((kind, i) =>
@@ -386,21 +385,6 @@ function App() {
             selectedProjectId={selectedProject?.id}
             onSelectProject={setSelectedProject}
           />
-          <button
-            onClick={() => setViewMode("landing")}
-            className="flex items-center gap-2 border px-3 py-2 rounded-2xl shadow-xl transition-colors cursor-pointer font-semibold text-xs theme-transition"
-            style={{
-              backgroundColor: "var(--t-bg-elevated)",
-              borderColor: "var(--t-border)",
-              color: "var(--t-text-2)",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--t-bg-hover)" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--t-bg-elevated)" }}
-            title="Landing Page Overview"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" style={{ color: "var(--t-accent)" }} />
-            <span className="hidden sm:inline">Landing Page</span>
-          </button>
         </div>
         <div className="pointer-events-auto">
           <ProfileButton
@@ -524,7 +508,23 @@ async function runAgentTask(
   }
   if (kind === "crew") {
     const result = await createCrewPosting(token, projectId, prompt, signal)
-    return result.poster_text ?? `Crew posting created for ${result.role_title}.`
+    const posterText = result.poster_text ?? `Crew posting created for ${result.role_title}.`
+    const crewPoster = createCrewPosterImage({
+      title: result.role_title,
+      department: result.department,
+      location: result.location,
+      isPaid: result.is_paid,
+      isRemote: result.is_remote,
+      compensation: result.compensation_notes,
+      experienceLevel: result.experience_level,
+      body: posterText,
+      projectTitle,
+    })
+
+    return JSON.stringify({
+      text: `Generated a crew recruitment poster for ${result.role_title}.`,
+      crewPoster,
+    })
   }
   if (kind === "location") {
     const result = await scoutLocations(token, projectId, prompt, signal)
@@ -556,6 +556,151 @@ async function runAgentTask(
 }
 
 
+function runningSummaryForKind(kind: AgentKind) {
+  if (kind === "assets") return "Searching Pixabay for photos matching script & location context..."
+  if (kind === "music") return "Finding soundtrack tracks with playable previews..."
+  if (kind === "crew") return "Generating crew posting copy and poster artwork..."
+  if (kind === "location") return "Scouting practical locations and visual notes..."
+  if (kind === "casting") return "Drafting casting materials..."
+  if (kind === "script") return "Developing screenplay notes and scene structure..."
+  return "Planning agent work..."
+}
+
+function createCrewPosterImage(input: {
+  title: string
+  department: string | null
+  location: string | null
+  isPaid: boolean
+  isRemote: boolean
+  compensation: string | null
+  experienceLevel: string | null
+  body: string
+  projectTitle?: string
+}) {
+  const role = input.title || "Production Crew"
+  const project = input.projectTitle || "Creo Studio"
+  const department = truncatePosterText(input.department || "Production", 24)
+  const location = truncatePosterText(input.isRemote ? "Remote" : input.location || "Location TBD", 26)
+  const pay = truncatePosterText(input.isPaid ? input.compensation || "Paid role" : "Passion project", 26)
+  const experience = input.experienceLevel ? `${toTitleCase(input.experienceLevel)} level` : "Film crew"
+  const cleanBody = stripPosterMarkdown(input.body)
+  const bodyLines = wrapPosterText(cleanBody, 52, 9)
+  const titleLines = wrapPosterText(role.toUpperCase(), 21, 2)
+  const fileName = `${slugify(role)}-crew-poster.png`
+  const titleStartY = titleLines.length > 1 ? 405 : 430
+  const titleNodes = titleLines.map((line, i) => `<text x="540" y="${titleStartY + i * 66}" class="role" text-anchor="middle">${escapeXml(line)}</text>`).join("")
+  const textNodes = bodyLines.map((line, i) => `<text x="150" y="${690 + i * 34}" class="body">${escapeXml(line)}</text>`).join("")
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <defs>
+    <clipPath id="paperClip">
+      <path d="M72 32 C142 42 178 22 240 36 C305 51 348 22 410 36 C466 49 518 31 573 35 C635 39 688 51 748 34 C812 16 864 39 928 30 C968 24 994 28 1010 34 L1015 145 C994 174 1019 205 996 235 L1013 352 C988 390 1019 432 995 474 L1014 606 C984 650 1022 706 994 752 L1010 888 C980 940 1020 999 990 1046 L1010 1223 C933 1231 869 1218 796 1236 C727 1253 676 1226 612 1242 C540 1260 476 1229 414 1242 C334 1258 276 1229 201 1243 C143 1254 101 1242 70 1230 L57 1110 C83 1068 45 1019 72 974 L54 840 C85 794 45 744 72 696 L54 578 C82 530 45 480 73 434 L56 304 C85 263 45 211 73 166 Z"/>
+    </clipPath>
+    <radialGradient id="paperBase" cx="44%" cy="38%" r="78%">
+      <stop offset="0" stop-color="#f7e6bd"/>
+      <stop offset="0.58" stop-color="#e4bd78"/>
+      <stop offset="1" stop-color="#b9782e"/>
+    </radialGradient>
+    <linearGradient id="paperShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff5d0" stop-opacity="0.5"/>
+      <stop offset="0.55" stop-color="#d79b4b" stop-opacity="0"/>
+      <stop offset="1" stop-color="#5a3216" stop-opacity="0.28"/>
+    </linearGradient>
+    <filter id="softGrain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="9"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="table" tableValues="0 0.08"/></feComponentTransfer>
+    </filter>
+    <style>
+      .wanted{font:900 138px Georgia,'Times New Roman',serif;letter-spacing:16px;fill:#26180d}.role{font:900 58px Georgia,'Times New Roman',serif;letter-spacing:2px;fill:#26180d}.project{font:700 27px Georgia,'Times New Roman',serif;letter-spacing:5px;fill:#5a351b}.meta{font:700 27px Georgia,'Times New Roman',serif;fill:#26180d}.body{font:400 27px Georgia,'Times New Roman',serif;fill:#2d1c0f}.footer{font:700 25px Georgia,'Times New Roman',serif;letter-spacing:1px;fill:#26180d}
+    </style>
+  </defs>
+  <rect width="1080" height="1350" fill="#2b1b10"/>
+  <g clip-path="url(#paperClip)">
+    <rect x="54" y="28" width="972" height="1218" fill="url(#paperBase)"/>
+    <rect x="54" y="28" width="972" height="1218" fill="url(#paperShade)"/>
+    <rect x="54" y="28" width="972" height="1218" fill="#7a461e" filter="url(#softGrain)" opacity="0.65"/>
+    <rect x="54" y="28" width="972" height="1218" fill="none" stroke="#754514" stroke-width="20" opacity="0.12"/>
+  </g>
+  <text x="540" y="205" class="wanted" text-anchor="middle">WANTED</text>
+  <line x1="160" y1="300" x2="430" y2="300" stroke="#26180d" stroke-width="6"/>
+  <g transform="translate(540 294)" stroke="#26180d" fill="none" stroke-width="5" stroke-linecap="round"><path d="M-54 10 C-30 -18 -12 -18 0 8 C12 -18 30 -18 54 10"/><path d="M-74 16 C-42 38 -22 30 0 10 C22 30 42 38 74 16"/><path d="M-18 28 C-10 42 10 42 18 28"/><circle cx="-42" cy="7" r="7" fill="#26180d"/><circle cx="42" cy="7" r="7" fill="#26180d"/></g>
+  <line x1="650" y1="300" x2="920" y2="300" stroke="#26180d" stroke-width="6"/>
+  ${titleNodes}
+  <text x="540" y="548" class="project" text-anchor="middle">${escapeXml(truncatePosterText(project.toUpperCase(), 34))}</text>
+  <rect x="130" y="585" width="820" height="58" rx="4" fill="#26180d" opacity="0.1"/>
+  <text x="540" y="623" class="meta" text-anchor="middle">${escapeXml(department)} / ${escapeXml(experience)}</text>
+  ${textNodes}
+  <line x1="140" y1="1068" x2="410" y2="1068" stroke="#26180d" stroke-width="6"/>
+  <g transform="translate(540 1062)" stroke="#26180d" fill="none" stroke-width="5" stroke-linecap="round"><path d="M-54 10 C-30 -18 -12 -18 0 8 C12 -18 30 -18 54 10"/><path d="M-74 16 C-42 38 -22 30 0 10 C22 30 42 38 74 16"/><path d="M-18 28 C-10 42 10 42 18 28"/><circle cx="-42" cy="7" r="7" fill="#26180d"/><circle cx="42" cy="7" r="7" fill="#26180d"/></g>
+  <line x1="670" y1="1068" x2="940" y2="1068" stroke="#26180d" stroke-width="6"/>
+  <text x="540" y="1142" class="meta" text-anchor="middle">${escapeXml(location)} / ${escapeXml(pay)}</text>
+  <text x="540" y="1208" class="footer" text-anchor="middle">Apply with reel, availability, and relevant credits.</text>
+</svg>`
+
+  return {
+    title: role,
+    imageUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    downloadName: fileName,
+  }
+}
+
+function stripPosterMarkdown(value: string) {
+  return value
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\s+[*]\s+/g, " ")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function truncatePosterText(value: string, maxChars: number) {
+  const clean = value.replace(/\s+/g, " ").trim()
+  if (clean.length <= maxChars) return clean
+  return `${clean.slice(0, Math.max(0, maxChars - 3)).trim()}...`
+}
+
+function wrapPosterText(text: string, maxChars: number, maxLines: number) {
+  const words = text.split(" ").filter(Boolean)
+  const lines: string[] = []
+  let current = ""
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (next.length > maxChars && current) {
+      lines.push(current)
+      current = word
+      if (lines.length === maxLines) break
+    } else {
+      current = next
+    }
+  }
+
+  if (current && lines.length < maxLines) lines.push(current)
+  if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
+    lines[maxLines - 1] = `${lines[maxLines - 1].replace(/[,.!?;:]*$/, "")}...`
+  }
+  return lines
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "crew-poster"
+}
+
+function toTitleCase(value: string) {
+  return value.replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
 
 export default App
 

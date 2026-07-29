@@ -47,6 +47,12 @@ export interface AssetResult {
 export interface CrewResult {
   id: string
   role_title: string
+  department: string | null
+  experience_level: string | null
+  is_paid: boolean
+  compensation_notes: string | null
+  location: string | null
+  is_remote: boolean
   poster_text: string | null
 }
 

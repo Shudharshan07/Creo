@@ -1,5 +1,5 @@
 import React, { useRef, useState, useLayoutEffect, useCallback, useEffect, useMemo } from "react"
-import { Ban, CheckCircle2, Clock, Ellipsis, ExternalLink, FilePenLine, FileText, Loader2, MapPin, MessageCircle, Music, Search, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
+import { Ban, CheckCircle2, Clock, Download, Ellipsis, ExternalLink, FilePenLine, FileText, ImageIcon, Loader2, MapPin, MessageCircle, Music, Search, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
 import { type AgentKind, type AgentNode, type AgentNodeStatus } from "../types/agent"
 
 interface AgentNodesOverlayProps {
@@ -12,7 +12,7 @@ interface AgentNodesOverlayProps {
   zoom: number
 }
 
-// Min/max card width — grows with content up to max
+// Min/max card width ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â grows with content up to max
 const CARD_MIN_W = 260
 const CARD_MAX_W = 700
 
@@ -107,7 +107,7 @@ export const AgentNodesOverlay: React.FC<AgentNodesOverlayProps> = ({
   }, [reflowedY])
 
   const handleNodeMouseDown = useCallback((e: React.MouseEvent, node: AgentNode) => {
-    if ((e.target as HTMLElement).closest("button, textarea, input")) return
+    if ((e.target as HTMLElement).closest("a, button, textarea, input")) return
     e.stopPropagation()
     dragRef.current = {
       nodeId: node.id,
@@ -136,7 +136,7 @@ export const AgentNodesOverlay: React.FC<AgentNodesOverlayProps> = ({
   return (
     <div id="storyboard-nodes-container" ref={containerRef} className="absolute inset-0 pointer-events-none">
 
-      {/* SVG arrows — parent right-center → child left-center */}
+      {/* SVG arrows ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â parent right-center ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ child left-center */}
       {nodes.some((node) => node.parentId) && (
         <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible", pointerEvents: "none" }}>
           <defs>
@@ -289,6 +289,7 @@ const NodeCard: React.FC<NodeCardProps> = ({
           text?: string
           assets?: Array<{ title: string; url: string; thumb: string; provider: string }>
           tracks?: Array<{ title: string; artist: string; album: string; preview: string; url: string; cover: string }>
+          crewPoster?: { title: string; imageUrl: string; downloadName: string }
         }
       }
     } catch {
@@ -297,12 +298,44 @@ const NodeCard: React.FC<NodeCardProps> = ({
     return null
   }, [node.summary])
 
-  const bodyText = node.kind === "planner"
+  const rawBodyText = node.kind === "planner"
     ? node.summary
     : node.isFollowUp
       ? (parsedSummary?.text ?? node.summary ?? "Waiting to start...")
       : (parsedSummary?.text ?? node.summary ?? node.prompt)
+  const bodyText = parsedSummary ? rawBodyText : cleanNodeText(rawBodyText)
+  const handleDownloadCrewPoster = useCallback(async () => {
+    const poster = parsedSummary?.crewPoster
+    if (!poster) return
 
+    const image = new Image()
+    image.decoding = "async"
+    image.src = poster.imageUrl
+
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve()
+      image.onerror = () => reject(new Error("Poster image could not be loaded."))
+    })
+
+    const canvas = document.createElement("canvas")
+    canvas.width = image.naturalWidth || 1080
+    canvas.height = image.naturalHeight || 1350
+    const context = canvas.getContext("2d")
+    if (!context) return
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    canvas.toBlob((blob) => {
+      if (!blob) return
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = objectUrl
+      link.download = poster.downloadName.replace(/\.svg$/i, ".png")
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+    }, "image/png")
+  }, [parsedSummary?.crewPoster])
   return (
     <div
       ref={cardRef}
@@ -499,6 +532,31 @@ const NodeCard: React.FC<NodeCardProps> = ({
         {bodyText}
       </div>
 
+      {parsedSummary?.crewPoster && (
+        <div className="mt-3 w-[340px] max-w-full rounded-xl border p-2.5 theme-transition" style={{ borderColor: "var(--t-border)", backgroundColor: "var(--t-bg-elevated)" }}>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="min-w-0 flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--t-text-3)" }}>
+              <ImageIcon className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">Poster Preview</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleDownloadCrewPoster}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10 flex-shrink-0"
+              title="Download PNG"
+              style={{ color: "var(--t-text-2)" }}
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+          <img
+            src={parsedSummary.crewPoster.imageUrl}
+            alt={`${parsedSummary.crewPoster.title} poster preview`}
+            className="block w-full rounded-lg border object-cover shadow-lg"
+            style={{ borderColor: "var(--t-border)", aspectRatio: "4 / 5" }}
+          />
+        </div>
+      )}
       {parsedSummary?.assets && parsedSummary.assets.length > 0 && (
         <div className="mt-3">
           <div className="grid grid-cols-3 gap-2">
@@ -538,7 +596,7 @@ const NodeCard: React.FC<NodeCardProps> = ({
               color: "var(--t-text-1)",
             }}
           >
-            <span>📷 Load 3 More Images</span>
+            <span>Load 3 More Images</span>
           </button>
         </div>
       )}
@@ -565,7 +623,7 @@ const NodeCard: React.FC<NodeCardProps> = ({
                       {track.title}
                     </h4>
                     <p className="text-[10px] truncate opacity-75 mt-0.5" style={{ color: "var(--t-text-3)" }}>
-                      {track.artist} • {track.album}
+                      {track.artist} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {track.album}
                     </p>
                   </div>
                 </div>
@@ -604,7 +662,7 @@ const NodeCard: React.FC<NodeCardProps> = ({
               color: "var(--t-text-1)",
             }}
           >
-            <span>🎵 Load 3 More Songs</span>
+            <span>Load 3 More Songs</span>
           </button>
         </div>
       )}
@@ -712,6 +770,23 @@ const MenuItem: React.FC<{
   </button>
 )
 
+function cleanNodeText(value?: string | null) {
+  if (!value) return value
+
+  return value
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```[a-z]*\n?/gi, "").replace(/```/g, ""))
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/_([^_\n]+)_/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "- ")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/[>#`]/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
 function arrowKey(status: AgentNodeStatus) {
   if (status === "done") return "success"
   if (status === "error" || status === "stopped") return "danger"

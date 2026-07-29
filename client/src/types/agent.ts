@@ -1,5 +1,5 @@
 export type AgentNodeStatus = "queued" | "running" | "done" | "error" | "stopped"
-export type AgentKind = "planner" | "script" | "casting" | "assets" | "crew" | "location"
+export type AgentKind = "planner" | "script" | "casting" | "assets" | "crew" | "location" | "music"
 
 export interface AgentNode {
   id: string

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useLayoutEffect, useCallback, useEffect, useMemo } from "react"
-import { Ban, CheckCircle2, Clock, Ellipsis, ExternalLink, FilePenLine, FileText, Loader2, MapPin, MessageCircle, Search, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
+import { Ban, CheckCircle2, Clock, Ellipsis, ExternalLink, FilePenLine, FileText, Loader2, MapPin, MessageCircle, Music, Search, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
 import { type AgentKind, type AgentNode, type AgentNodeStatus } from "../types/agent"
 
 interface AgentNodesOverlayProps {
@@ -23,6 +23,7 @@ const kindIcons: Record<AgentKind, React.ReactNode> = {
   assets: <Search className="w-4 h-4" />,
   crew: <Users className="w-4 h-4" />,
   location: <MapPin className="w-4 h-4" />,
+  music: <Music className="w-4 h-4" />,
 }
 
 // Tracks actual rendered card size for arrow anchoring
@@ -284,7 +285,11 @@ const NodeCard: React.FC<NodeCardProps> = ({
     if (!node.summary) return null
     try {
       if (node.summary.trim().startsWith("{")) {
-        return JSON.parse(node.summary) as { text?: string; assets?: Array<{ title: string; url: string; thumb: string; provider: string }> }
+        return JSON.parse(node.summary) as {
+          text?: string
+          assets?: Array<{ title: string; url: string; thumb: string; provider: string }>
+          tracks?: Array<{ title: string; artist: string; album: string; preview: string; url: string; cover: string }>
+        }
       }
     } catch {
       return null
@@ -534,6 +539,72 @@ const NodeCard: React.FC<NodeCardProps> = ({
             }}
           >
             <span>📷 Load 3 More Images</span>
+          </button>
+        </div>
+      )}
+
+      {parsedSummary?.tracks && parsedSummary.tracks.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {parsedSummary.tracks.map((track, i) => (
+            <div
+              key={i}
+              className="rounded-xl border p-2.5 flex flex-col gap-2 bg-black/30 theme-transition"
+              style={{ borderColor: "var(--t-border)" }}
+            >
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {track.cover && (
+                    <img
+                      src={track.cover}
+                      alt={track.title}
+                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold truncate leading-tight" style={{ color: "var(--t-text-1)" }}>
+                      {track.title}
+                    </h4>
+                    <p className="text-[10px] truncate opacity-75 mt-0.5" style={{ color: "var(--t-text-3)" }}>
+                      {track.artist} • {track.album}
+                    </p>
+                  </div>
+                </div>
+                {track.url && (
+                  <a
+                    href={track.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs flex-shrink-0"
+                    title="Open on Jamendo"
+                    style={{ color: "var(--t-text-2)" }}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+
+              {track.preview && (
+                <audio
+                  controls
+                  controlsList="nodownload"
+                  src={track.preview}
+                  className="w-full h-7 text-xs rounded-lg"
+                />
+              )}
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => onMessageAgent(node.id, "Fetch 3 more soundtrack tracks")}
+            className="mt-3 w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer hover:opacity-90"
+            style={{
+              backgroundColor: "var(--t-bg-elevated)",
+              borderColor: "var(--t-border)",
+              color: "var(--t-text-1)",
+            }}
+          >
+            <span>🎵 Load 3 More Songs</span>
           </button>
         </div>
       )}

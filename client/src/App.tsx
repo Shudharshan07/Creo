@@ -14,6 +14,7 @@ import {
   getStoredSession,
   searchAgentAssets,
   scoutLocations,
+  searchMusicTracks,
 } from "./lib/api"
 import { type AgentKind, type AgentNode } from "./types/agent"
 import { type Project } from "./types/project"
@@ -208,7 +209,7 @@ function App() {
     const taskPrompt = buildFollowUpPrompt(parent, followUp)
 
     if (parent.kind === "planner") {
-      const workerKinds: AgentKind[] = ["script", "casting", "assets", "crew", "location"]
+      const workerKinds: AgentKind[] = ["script", "casting", "location", "music", "crew", "assets"]
       const newNodes = workerKinds.map((kind, i) =>
         createNode(
           createNodeId(kind),
@@ -314,7 +315,7 @@ function App() {
     const bx = batch * 200
     const by = batch * 380
 
-    const workerKinds: AgentKind[] = ["script", "casting", "location", "crew", "assets"]
+    const workerKinds: AgentKind[] = ["script", "casting", "location", "music", "crew", "assets"]
     const plannerSummary = `Dispatching ${workerKinds.length} agents in parallel for "${project.title}".`
     // Generous initial spacing — overlay will reflow based on actual heights
     const workerSpacing = 500
@@ -473,6 +474,7 @@ function titleForKind(kind: AgentKind) {
   if (kind === "assets") return "Asset Scout"
   if (kind === "crew") return "Crew Recruiter"
   if (kind === "location") return "Location Scout"
+  if (kind === "music") return "Music Director"
   return "Planner"
 }
 
@@ -527,6 +529,28 @@ async function runAgentTask(
   if (kind === "location") {
     const result = await scoutLocations(token, projectId, prompt, signal)
     return result.scout_report ?? `Location scouting report generated for ${result.location_name}.`
+  }
+  if (kind === "music") {
+    const isLoadMore = prompt.toLowerCase().includes("more") || prompt.toLowerCase().includes("load") || prompt.toLowerCase().includes("additional")
+    const page = isLoadMore ? 2 : 1
+    const limit = 3
+
+    const results = await searchMusicTracks(token, projectId, prompt, limit, page, projectTitle, signal)
+    if (results.length === 0) return "No soundtrack tracks were found for this topic."
+
+    const items = results.map((t) => ({
+      title: t.title ?? "Soundtrack Track",
+      artist: t.artist ?? "Artist",
+      album: t.album ?? "Original Score",
+      preview: t.preview_url ?? "",
+      url: t.deezer_url ?? "#",
+      cover: t.cover_url ?? "",
+    }))
+
+    return JSON.stringify({
+      text: `Sourced ${results.length} royalty-free soundtrack tracks for "${projectTitle || "film"}" topic via Jamendo:`,
+      tracks: items,
+    })
   }
   return "Planning complete."
 }

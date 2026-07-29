@@ -56,6 +56,17 @@ export interface LocationResult {
   scout_report: string | null
 }
 
+export interface MusicTrackResult {
+  id: string
+  title: string
+  artist: string | null
+  album: string | null
+  preview_url: string | null
+  deezer_url: string | null
+  cover_url: string | null
+  duration: number | null
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -236,6 +247,28 @@ export async function scoutLocations(token: string, projectId: string, prompt: s
       location_name: prompt.slice(0, 40) || "Shooting Location",
       location_type: "Architectural / Outdoor",
       visual_description: prompt,
+    }),
+    signal,
+  })
+}
+
+export async function searchMusicTracks(
+  token: string,
+  projectId: string,
+  prompt: string,
+  limit = 3,
+  page = 1,
+  projectTitle?: string,
+  signal?: AbortSignal
+) {
+  return await request<MusicTrackResult[]>(`/projects/${projectId}/music/search`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      query: prompt,
+      limit: limit,
+      page: page,
+      project_title: projectTitle,
     }),
     signal,
   })

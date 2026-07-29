@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     groq_model: str = "groq/llama-3.3-70b-versatile"
     pexels_api_key: str = ""
     pixabay_api_key: str = ""
+    jamendo_client_id: str = "56d30c4d"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
 

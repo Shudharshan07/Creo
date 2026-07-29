@@ -101,49 +101,67 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, selecte
     }
   }, [newGenre, newTitle, onSelectProject, token])
 
-  const handleRenameProject = useCallback(async (project: Project) => {
-    const nextTitle = window.prompt("Rename project", project.title)?.trim()
+  const [renamingProject, setRenamingProject] = useState<Project | null>(null)
+  const [renameTitleInput, setRenameTitleInput] = useState("")
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null)
+
+  const handleOpenRename = useCallback((project: Project) => {
+    setRenamingProject(project)
+    setRenameTitleInput(project.title)
     setMenuProjectId(null)
-    if (!nextTitle || nextTitle === project.title) return
+  }, [])
+
+  const handleOpenDelete = useCallback((project: Project) => {
+    setDeletingProject(project)
+    setMenuProjectId(null)
+  }, [])
+
+  const submitRenameProject = useCallback(async () => {
+    if (!renamingProject) return
+    const nextTitle = renameTitleInput.trim()
+    if (!nextTitle || nextTitle === renamingProject.title) {
+      setRenamingProject(null)
+      return
+    }
 
     setIsMutatingProject(true)
     setError(null)
     try {
-      const updatedProject = await updateProject(token, project.id, { title: nextTitle })
-      setProjectsList((projects) => projects.map((item) => item.id === project.id ? updatedProject : item))
-      if (selectedProjectId === project.id) {
+      const updatedProject = await updateProject(token, renamingProject.id, { title: nextTitle })
+      setProjectsList((projects) => projects.map((item) => item.id === renamingProject.id ? updatedProject : item))
+      if (selectedProjectId === renamingProject.id) {
         onSelectProject?.(updatedProject)
       }
+      setRenamingProject(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to rename project")
     } finally {
       setIsMutatingProject(false)
     }
-  }, [onSelectProject, selectedProjectId, token])
+  }, [onSelectProject, renameTitleInput, renamingProject, selectedProjectId, token])
 
-  const handleDeleteProject = useCallback(async (project: Project) => {
-    const shouldDelete = window.confirm(`Delete "${project.title}"?`)
-    setMenuProjectId(null)
-    if (!shouldDelete) return
+  const confirmDeleteProject = useCallback(async () => {
+    if (!deletingProject) return
 
     setIsMutatingProject(true)
     setError(null)
     try {
-      await deleteProject(token, project.id)
-      const remainingProjects = projectsList.filter((item) => item.id !== project.id)
+      await deleteProject(token, deletingProject.id)
+      const remainingProjects = projectsList.filter((item) => item.id !== deletingProject.id)
       setProjectsList(remainingProjects)
 
-      if (selectedProjectId === project.id) {
+      if (selectedProjectId === deletingProject.id) {
         const nextProject = remainingProjects[0] ?? null
         setSelectedProjectId(nextProject?.id ?? "")
         onSelectProject?.(nextProject)
       }
+      setDeletingProject(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete project")
     } finally {
       setIsMutatingProject(false)
     }
-  }, [onSelectProject, projectsList, selectedProjectId, token])
+  }, [deletingProject, onSelectProject, projectsList, selectedProjectId, token])
 
   return (
     <div className="relative z-40">
@@ -292,8 +310,8 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, selecte
                 onSelect={handleSelect}
                 menuProjectId={menuProjectId}
                 onToggleMenu={setMenuProjectId}
-                onRename={handleRenameProject}
-                onDelete={handleDeleteProject}
+                onRename={handleOpenRename}
+                onDelete={handleOpenDelete}
               />
             )}
             {thisYearProjects.length > 0 && (
@@ -304,8 +322,8 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, selecte
                 onSelect={handleSelect}
                 menuProjectId={menuProjectId}
                 onToggleMenu={setMenuProjectId}
-                onRename={handleRenameProject}
-                onDelete={handleDeleteProject}
+                onRename={handleOpenRename}
+                onDelete={handleOpenDelete}
               />
             )}
             {examplesProjects.length > 0 && (
@@ -316,8 +334,8 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, selecte
                 onSelect={handleSelect}
                 menuProjectId={menuProjectId}
                 onToggleMenu={setMenuProjectId}
-                onRename={handleRenameProject}
-                onDelete={handleDeleteProject}
+                onRename={handleOpenRename}
+                onDelete={handleOpenDelete}
               />
             )}
             {!isLoading && filteredProjects.length === 0 && (
@@ -325,6 +343,101 @@ export const ProjectsOverlay: React.FC<ProjectsOverlayProps> = ({ token, selecte
                 {searchQuery ? `No projects found matching "${searchQuery}"` : "No projects yet"}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Rename Project Modal */}
+      {renamingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-3xl border shadow-2xl p-6 theme-transition"
+            style={{ backgroundColor: "var(--t-bg-panel)", borderColor: "var(--t-border)", color: "var(--t-text-1)" }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <Pencil className="w-4 h-4" style={{ color: "var(--t-accent)" }} />
+                <span>Rename Project</span>
+              </h3>
+              <button
+                onClick={() => setRenamingProject(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                style={{ color: "var(--t-text-3)" }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "var(--t-text-3)" }}>
+              Enter a new title for <strong style={{ color: "var(--t-text-1)" }}>"{renamingProject.title}"</strong>
+            </p>
+            <form onSubmit={(e) => { e.preventDefault(); submitRenameProject(); }}>
+              <input
+                type="text"
+                value={renameTitleInput}
+                onChange={(e) => setRenameTitleInput(e.target.value)}
+                placeholder="Project title"
+                className="w-full rounded-2xl px-4 py-3 text-sm outline-none mb-6 border theme-transition"
+                style={{ backgroundColor: "var(--t-bg-input)", borderColor: "var(--t-border)", color: "var(--t-text-1)" }}
+                autoFocus
+              />
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRenamingProject(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                  style={{ color: "var(--t-text-2)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!renameTitleInput.trim() || isMutatingProject}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                  style={{ backgroundColor: "var(--t-accent)", color: "var(--t-accent-fg)" }}
+                >
+                  {isMutatingProject && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Title</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Project Confirmation Modal */}
+      {deletingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-3xl border shadow-2xl p-6 theme-transition"
+            style={{ backgroundColor: "var(--t-bg-panel)", borderColor: "var(--t-border)", color: "var(--t-text-1)" }}
+          >
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: "rgba(248,113,113,0.15)", color: "var(--t-danger)" }}>
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold mb-2">Delete Project</h3>
+            <p className="text-xs mb-6 leading-relaxed" style={{ color: "var(--t-text-3)" }}>
+              Are you sure you want to delete <strong style={{ color: "var(--t-text-1)" }}>"{deletingProject.title}"</strong>? This will permanently remove all associated scene breakdowns and agent outputs.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingProject(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                style={{ color: "var(--t-text-2)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteProject}
+                disabled={isMutatingProject}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                style={{ backgroundColor: "var(--t-danger)", color: "#ffffff" }}
+              >
+                {isMutatingProject && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Delete Project</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

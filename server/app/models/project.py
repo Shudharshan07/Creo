@@ -25,3 +25,4 @@ class Project(Base):
     casting_calls: Mapped[list["CastingCall"]] = relationship("CastingCall", back_populates="project", cascade="all, delete-orphan")
     assets: Mapped[list["Asset"]] = relationship("Asset", back_populates="project", cascade="all, delete-orphan")
     crew_postings: Mapped[list["CrewPosting"]] = relationship("CrewPosting", back_populates="project", cascade="all, delete-orphan")
+    location_scouts: Mapped[list["LocationScout"]] = relationship("LocationScout", back_populates="project", cascade="all, delete-orphan")

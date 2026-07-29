@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class AssetSearchRequest(BaseModel):
     query: str
     asset_type: str = "image"  # image | video | audio
-    limit: int = 10
+    limit: int = 3
 
 
 class AssetOut(BaseModel):

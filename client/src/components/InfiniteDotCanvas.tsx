@@ -16,7 +16,10 @@ interface InfiniteDotCanvasProps {
 }
 
 export interface InfiniteDotCanvasHandle {
+  zoomIn: (step?: number) => void
+  zoomOut: (step?: number) => void
   resetView: () => void
+  focusStoryboard: () => void
 }
 
 const MIN_ZOOM = 0.1
@@ -46,9 +49,30 @@ export const InfiniteDotCanvas = forwardRef<InfiniteDotCanvasHandle, InfiniteDot
     const transformRef = useRef<ReactZoomPanPinchRef>(null)
 
     useImperativeHandle(ref, () => ({
+      zoomIn(step = 0.2) {
+        if (transformRef.current) {
+          transformRef.current.zoomIn(step, 250)
+        }
+      },
+      zoomOut(step = 0.2) {
+        if (transformRef.current) {
+          transformRef.current.zoomOut(step, 250)
+        }
+      },
       resetView() {
-        transformRef.current?.resetTransform()
+        if (transformRef.current) {
+          transformRef.current.resetTransform(300)
+        }
         onZoomChange(1)
+      },
+      focusStoryboard() {
+        if (!transformRef.current) return
+        const storyboardEl = document.getElementById("storyboard-nodes-container")
+        if (storyboardEl) {
+          transformRef.current.zoomToElement(storyboardEl, 1, 300)
+        } else {
+          transformRef.current.centerView(1, 300)
+        }
       },
     }))
 
@@ -60,7 +84,8 @@ export const InfiniteDotCanvas = forwardRef<InfiniteDotCanvasHandle, InfiniteDot
         maxScale={MAX_ZOOM}
         limitToBounds={false}
         centerOnInit={false}
-        wheel={{ step: 0.08 }}
+        wheel={{ step: 0.02, touchPadDisabled: false }}
+        pinch={{ step: 0.02, disabled: false }}
         panning={{ velocityDisabled: false }}
         doubleClick={{ disabled: true }}
         onTransform={(_ref, state) => onZoomChange(state.scale)}

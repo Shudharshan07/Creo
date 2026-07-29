@@ -39,6 +39,8 @@ export interface AssetResult {
   id: string
   asset_type: string
   title: string | null
+  source_url?: string | null
+  thumbnail_url?: string | null
   source_provider: string | null
 }
 
@@ -46,6 +48,12 @@ export interface CrewResult {
   id: string
   role_title: string
   poster_text: string | null
+}
+
+export interface LocationResult {
+  id: string
+  location_name: string
+  scout_report: string | null
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -180,14 +188,14 @@ export async function createCastingCall(token: string, projectId: string, prompt
   })
 }
 
-export async function searchAgentAssets(token: string, projectId: string, prompt: string, signal?: AbortSignal) {
+export async function searchAgentAssets(token: string, projectId: string, prompt: string, limit = 3, signal?: AbortSignal) {
   return await request<AssetResult[]>(`/projects/${projectId}/assets/search`, {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({
       query: prompt,
       asset_type: inferAssetType(prompt),
-      limit: 6,
+      limit: limit,
     }),
     signal,
   })
@@ -205,6 +213,19 @@ export async function createCrewPosting(token: string, projectId: string, prompt
       experience_level: "mid",
       is_paid: true,
       is_remote: false,
+    }),
+    signal,
+  })
+}
+
+export async function scoutLocations(token: string, projectId: string, prompt: string, signal?: AbortSignal) {
+  return await request<LocationResult>(`/projects/${projectId}/locations/scout`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      location_name: prompt.slice(0, 40) || "Shooting Location",
+      location_type: "Architectural / Outdoor",
+      visual_description: prompt,
     }),
     signal,
   })

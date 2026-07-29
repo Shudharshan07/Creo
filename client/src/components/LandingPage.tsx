@@ -8,14 +8,16 @@ import {
   Users, 
   Film, 
   Briefcase, 
+  MapPin,
   Play
 } from 'lucide-react';
 
 interface LandingPageProps {
   onEnterStudio: () => void;
+  onLoginClick?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio, onLoginClick }) => {
   const [demoLogline, setDemoLogline] = useState('A neo-noir detective in 2080 Neo-Tokyo investigates black-market memory trading.');
   const [isGeneratingDemo, setIsGeneratingDemo] = useState(false);
   const [showDemoOutput, setShowDemoOutput] = useState(true);
@@ -76,8 +78,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio }) => {
 
         <div className="flex items-center space-x-3">
           <button 
-            onClick={onEnterStudio}
-            className="text-sm font-medium px-3 py-2 transition-opacity hover:opacity-80"
+            onClick={onLoginClick || onEnterStudio}
+            className="text-sm font-medium px-3 py-2 transition-opacity hover:opacity-80 cursor-pointer"
             style={{ color: 'var(--t-text-2)' }}
           >
             Sign in
@@ -277,7 +279,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio }) => {
             No fragmented tools. Script, casting, media, and crew management work in real-time sync.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 text-left">
             <div 
               className="p-6 rounded-2xl border transition-shadow theme-transition"
               style={{
@@ -307,6 +309,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterStudio }) => {
               <h3 className="text-base font-bold mb-2" style={{ color: 'var(--t-text-1)' }}>Character & Casting Studio</h3>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--t-text-3)' }}>
                 Character archetypes, motivation matrices, actor concept matches, and printable audition notices.
+              </p>
+            </div>
+
+            <div 
+              className="p-6 rounded-2xl border transition-shadow theme-transition"
+              style={{
+                backgroundColor: 'var(--t-bg-surface)',
+                borderColor: 'var(--t-border)'
+              }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-4">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold mb-2" style={{ color: 'var(--t-text-1)' }}>Location Scouting Engine</h3>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--t-text-3)' }}>
+                Real-world shooting location suggestions, lighting/permit considerations, and architectural aesthetics.
               </p>
             </div>
 

@@ -13,14 +13,12 @@ import {
   generateScript,
   getStoredSession,
   searchAgentAssets,
+  scoutLocations,
 } from "./lib/api"
 import { type AgentKind, type AgentNode } from "./types/agent"
 import { type Project } from "./types/project"
 import { LayoutGrid } from "lucide-react"
 
-const ZOOM_STEP = 0.15
-const MIN_ZOOM = 0.1
-const MAX_ZOOM = 4
 const PROJECT_HISTORY_STORAGE_KEY = "movie_agent_project_history"
 const CHILD_NODE_X_OFFSET = 320
 
@@ -28,7 +26,7 @@ type ProjectHistoryState = Record<string, AgentNode[]>
 
 function App() {
   const [session, setSession] = useState(() => getStoredSession())
-  const [viewMode, setViewMode] = useState<"studio" | "landing">("studio")
+  const [viewMode, setViewMode] = useState<"landing" | "login" | "studio">("landing")
   const [zoom, setZoom] = useState(1)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -39,7 +37,9 @@ function App() {
   const agentTimeoutsRef = useRef(new Map<string, number>())
   const currentProjectNodes = selectedProject ? projectHistory[selectedProject.id] ?? [] : []
 
+  const projectHistoryRef = useRef(projectHistory)
   useEffect(() => {
+    projectHistoryRef.current = projectHistory
     persistProjectHistory(projectHistory)
   }, [projectHistory])
 
@@ -59,15 +59,19 @@ function App() {
   }, [])
 
   const handleZoomIn = useCallback(() => {
-    setZoom((z) => Math.min(MAX_ZOOM, parseFloat((z + ZOOM_STEP).toFixed(2))))
+    canvasRef.current?.zoomIn()
   }, [])
 
   const handleZoomOut = useCallback(() => {
-    setZoom((z) => Math.max(MIN_ZOOM, parseFloat((z - ZOOM_STEP).toFixed(2))))
+    canvasRef.current?.zoomOut()
   }, [])
 
   const handleZoomReset = useCallback(() => {
     canvasRef.current?.resetView()
+  }, [])
+
+  const handleFocusStoryboard = useCallback(() => {
+    canvasRef.current?.focusStoryboard()
   }, [])
 
   const handleFullscreen = useCallback(() => {
@@ -87,7 +91,9 @@ function App() {
     setSession({ token: null, email: null })
     setSelectedProject(null)
     setAgentNodes([])
+    setViewMode("landing")
   }, [])
+
   const updateAgentNode = useCallback((id: string, patch: Partial<AgentNode>) => {
     const projectId = selectedProject?.id
     if (!projectId) return
@@ -105,16 +111,40 @@ function App() {
     const token = session.token
     if (!projectId || !token || node.kind === "planner") return
 
-    const run = () => {
+    const run = async () => {
       agentControllersRef.current.get(node.id)?.abort()
       agentControllersRef.current.delete(node.id)
 
       const controller = new AbortController()
       agentControllersRef.current.set(node.id, controller)
+
+      // If Asset Scout, wait until Script, Casting, & Location agents in batch complete
+      if (node.kind === "assets" && !node.isFollowUp) {
+        updateAgentNode(node.id, {
+          status: "running",
+          summary: "Waiting for script, casting, & location agents to finish...",
+          progress: 10,
+        })
+
+        const startTime = Date.now()
+        while (Date.now() - startTime < 30000) {
+          if (controller.signal.aborted) return
+          const currentNodes = projectHistoryRef.current[projectId] ?? []
+          const batchNodes = currentNodes.filter((n: AgentNode) => n.batchId === node.batchId && n.id !== node.id)
+          const pendingPrior = batchNodes.filter(
+            (n: AgentNode) => (n.kind === "script" || n.kind === "casting" || n.kind === "location") && (n.status === "running" || n.status === "queued")
+          )
+          if (pendingPrior.length === 0) break
+          await new Promise((r) => setTimeout(r, 700))
+        }
+      }
+
+      if (controller.signal.aborted) return
+
       updateAgentNode(node.id, {
         status: "running",
-        summary: `Working on: ${node.prompt}`,
-        progress: 0,
+        summary: `Searching Pixabay for photos matching script & location context...`,
+        progress: 35,
         error: undefined,
       })
 
@@ -122,13 +152,15 @@ function App() {
         syncProjectNodes(projectId, (nodes) =>
           nodes.map((n) => {
             if (n.id !== node.id || n.status !== "running") return n
-            const next = Math.min((n.progress ?? 0) + Math.random() * 18, 90)
+            const next = Math.min((n.progress ?? 35) + Math.random() * 18, 92)
             return { ...n, progress: next }
           })
         )
       }, 800)
 
-      runAgentTask(node.kind, token, projectId, taskPrompt, controller.signal)
+      const latestProjectNodes = projectHistoryRef.current[projectId] ?? []
+
+      runAgentTask(node.kind, token, projectId, taskPrompt, controller.signal, latestProjectNodes)
         .then((summary) => {
           if (controller.signal.aborted) return
           updateAgentNode(node.id, { status: "done", summary, progress: 100 })
@@ -176,7 +208,7 @@ function App() {
     const taskPrompt = buildFollowUpPrompt(parent, followUp)
 
     if (parent.kind === "planner") {
-      const workerKinds: AgentKind[] = ["script", "casting", "assets", "crew"]
+      const workerKinds: AgentKind[] = ["script", "casting", "assets", "crew", "location"]
       const newNodes = workerKinds.map((kind, i) =>
         createNode(
           createNodeId(kind),
@@ -282,7 +314,7 @@ function App() {
     const bx = batch * 200
     const by = batch * 380
 
-    const workerKinds: AgentKind[] = ["script", "casting", "assets", "crew"]
+    const workerKinds: AgentKind[] = ["script", "casting", "location", "crew", "assets"]
     const plannerSummary = `Dispatching ${workerKinds.length} agents in parallel for "${project.title}".`
     // Generous initial spacing — overlay will reflow based on actual heights
     const workerSpacing = 500
@@ -311,15 +343,34 @@ function App() {
     syncProjectNodes(project.id, (nodes) => [...nodes.slice(-20), ...newNodes])
 
     const workers = newNodes.filter((n) => n.kind !== "planner")
-    workers.forEach((node, i) => startAgentNode(node, prompt, i * 400))
+    workers.forEach((node, i) => startAgentNode(node, prompt, i * 800))
   }, [currentProjectNodes, selectedProject, session.token, startAgentNode, syncProjectNodes])
 
-  if (!session.token) {
-    return <AuthGate onAuthenticated={(token, email) => setSession({ token, email })} />
+  if (viewMode === "landing") {
+    return (
+      <LandingPage
+        onEnterStudio={() => {
+          if (session.token) {
+            setViewMode("studio")
+          } else {
+            setViewMode("login")
+          }
+        }}
+        onLoginClick={() => setViewMode("login")}
+      />
+    )
   }
 
-  if (viewMode === "landing") {
-    return <LandingPage onEnterStudio={() => setViewMode("studio")} />
+  if (viewMode === "login" || !session.token) {
+    return (
+      <AuthGate
+        onAuthenticated={(token, email) => {
+          setSession({ token, email })
+          setViewMode("studio")
+        }}
+        onBackToLanding={() => setViewMode("landing")}
+      />
+    )
   }
 
   return (
@@ -377,7 +428,7 @@ function App() {
         onZoomOut={handleZoomOut}
         onZoomReset={handleZoomReset}
         onFullscreen={handleFullscreen}
-        onHome={handleZoomReset}
+        onHome={handleFocusStoryboard}
         onSubmitPrompt={runPrompt}
         disabled={!selectedProject}
       />
@@ -421,10 +472,18 @@ function titleForKind(kind: AgentKind) {
   if (kind === "casting") return "Casting Director"
   if (kind === "assets") return "Asset Scout"
   if (kind === "crew") return "Crew Recruiter"
+  if (kind === "location") return "Location Scout"
   return "Planner"
 }
 
-async function runAgentTask(kind: AgentKind, token: string, projectId: string, prompt: string, signal: AbortSignal) {
+async function runAgentTask(
+  kind: AgentKind,
+  token: string,
+  projectId: string,
+  prompt: string,
+  signal: AbortSignal,
+  projectNodes: AgentNode[] = []
+) {
   if (kind === "script") {
     const result = await generateScript(token, projectId, prompt, signal)
     return result.ai_notes ?? result.scene_breakdown ?? result.content ?? `Script v${result.version} generated.`
@@ -434,12 +493,40 @@ async function runAgentTask(kind: AgentKind, token: string, projectId: string, p
     return result.poster_text ?? `Casting call created for ${result.character_name}.`
   }
   if (kind === "assets") {
-    const results = await searchAgentAssets(token, projectId, prompt, signal)
-    return results.length > 0 ? `Found and saved ${results.length} assets.` : "No matching assets were found."
+    const scriptNode = projectNodes.find((n) => n.kind === "script" && n.status === "done")
+    const castingNode = projectNodes.find((n) => n.kind === "casting" && n.status === "done")
+    const locationNode = projectNodes.find((n) => n.kind === "location" && n.status === "done")
+
+    let contextualPrompt = prompt
+    if (scriptNode?.summary) contextualPrompt += ` ${scriptNode.summary.slice(0, 120)}`
+    if (castingNode?.summary) contextualPrompt += ` ${castingNode.summary.slice(0, 120)}`
+    if (locationNode?.summary) contextualPrompt += ` ${locationNode.summary.slice(0, 120)}`
+
+    const isLoadMore = prompt.toLowerCase().includes("more") || prompt.toLowerCase().includes("load") || prompt.toLowerCase().includes("additional")
+    const limit = isLoadMore ? 6 : 3
+
+    const results = await searchAgentAssets(token, projectId, contextualPrompt, limit, signal)
+    if (results.length === 0) return "No matching assets were found."
+
+    const items = results.map((a) => ({
+      title: a.title ?? "Stock Asset",
+      url: a.source_url ?? "#",
+      thumb: a.thumbnail_url ?? a.source_url ?? "",
+      provider: a.source_provider ?? "Pixabay",
+    }))
+
+    return JSON.stringify({
+      text: `Sourced ${results.length} royalty-free visual assets matching script, casting, & location context via ${results[0]?.source_provider ?? "Pixabay"}:`,
+      assets: items,
+    })
   }
   if (kind === "crew") {
     const result = await createCrewPosting(token, projectId, prompt, signal)
     return result.poster_text ?? `Crew posting created for ${result.role_title}.`
+  }
+  if (kind === "location") {
+    const result = await scoutLocations(token, projectId, prompt, signal)
+    return result.scout_report ?? `Location scouting report generated for ${result.location_name}.`
   }
   return "Planning complete."
 }

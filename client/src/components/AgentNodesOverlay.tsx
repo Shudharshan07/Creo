@@ -1,5 +1,5 @@
 import React, { useRef, useState, useLayoutEffect, useCallback, useEffect, useMemo } from "react"
-import { Ban, CheckCircle2, Clock, Ellipsis, FilePenLine, FileText, Loader2, MessageCircle, Search, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
+import { Ban, CheckCircle2, Clock, Ellipsis, ExternalLink, FilePenLine, FileText, Loader2, MapPin, MessageCircle, Search, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
 import { type AgentKind, type AgentNode, type AgentNodeStatus } from "../types/agent"
 
 interface AgentNodesOverlayProps {
@@ -22,6 +22,7 @@ const kindIcons: Record<AgentKind, React.ReactNode> = {
   casting: <Users className="w-4 h-4" />,
   assets: <Search className="w-4 h-4" />,
   crew: <Users className="w-4 h-4" />,
+  location: <MapPin className="w-4 h-4" />,
 }
 
 // Tracks actual rendered card size for arrow anchoring
@@ -132,7 +133,7 @@ export const AgentNodesOverlay: React.FC<AgentNodesOverlayProps> = ({
   if (nodes.length === 0) return <div ref={containerRef} className="absolute inset-0 pointer-events-none" />
 
   return (
-    <div ref={containerRef} className="absolute inset-0 pointer-events-none">
+    <div id="storyboard-nodes-container" ref={containerRef} className="absolute inset-0 pointer-events-none">
 
       {/* SVG arrows — parent right-center → child left-center */}
       {nodes.some((node) => node.parentId) && (
@@ -271,18 +272,31 @@ const NodeCard: React.FC<NodeCardProps> = ({
     setIsMenuOpen(false)
   }, [draftPrompt, node.batchId, onEditBatchPrompt])
 
-  const handleDeleteBatch = useCallback(() => {
-    const shouldDelete = window.confirm("Delete this prompt and all nodes created from it?")
-    if (!shouldDelete) return
+  const [isDeletingConfirmOpen, setIsDeletingConfirmOpen] = useState(false)
+
+  const confirmDeleteBatch = useCallback(() => {
     onDeleteBatch(node.batchId)
+    setIsDeletingConfirmOpen(false)
     setIsMenuOpen(false)
   }, [node.batchId, onDeleteBatch])
+
+  const parsedSummary = useMemo(() => {
+    if (!node.summary) return null
+    try {
+      if (node.summary.trim().startsWith("{")) {
+        return JSON.parse(node.summary) as { text?: string; assets?: Array<{ title: string; url: string; thumb: string; provider: string }> }
+      }
+    } catch {
+      return null
+    }
+    return null
+  }, [node.summary])
 
   const bodyText = node.kind === "planner"
     ? node.summary
     : node.isFollowUp
-      ? (node.summary ?? "Waiting to start...")
-      : (node.summary ?? node.prompt)
+      ? (parsedSummary?.text ?? node.summary ?? "Waiting to start...")
+      : (parsedSummary?.text ?? node.summary ?? node.prompt)
 
   return (
     <div
@@ -413,13 +427,53 @@ const NodeCard: React.FC<NodeCardProps> = ({
                     label="Edit prompt"
                   />
                   <MenuItem
-                    onClick={handleDeleteBatch}
+                    onClick={() => {
+                      setIsDeletingConfirmOpen(true)
+                      setIsMenuOpen(false)
+                    }}
                     icon={<Trash2 className="w-4 h-4" />}
                     label="Delete prompt"
                     danger
                   />
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Custom Prompt Group Delete Confirmation Modal */}
+          {isDeletingConfirmOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm cursor-default">
+              <div
+                className="w-full max-w-sm rounded-3xl border shadow-2xl p-6 theme-transition text-left"
+                style={{ backgroundColor: "var(--t-bg-panel)", borderColor: "var(--t-border)", color: "var(--t-text-1)" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: "rgba(248,113,113,0.15)", color: "var(--t-danger)" }}>
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold mb-2">Delete Prompt Group</h3>
+                <p className="text-xs mb-6 leading-relaxed" style={{ color: "var(--t-text-3)" }}>
+                  Are you sure you want to delete this prompt and all generated agent nodes? This cannot be undone.
+                </p>
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsDeletingConfirmOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                    style={{ color: "var(--t-text-2)" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDeleteBatch}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer"
+                    style={{ backgroundColor: "var(--t-danger)", color: "#ffffff" }}
+                  >
+                    Delete Group
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -439,6 +493,57 @@ const NodeCard: React.FC<NodeCardProps> = ({
       <div className="mt-3 text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--t-text-2)" }}>
         {bodyText}
       </div>
+
+      {parsedSummary?.assets && parsedSummary.assets.length > 0 && (
+        <div className="mt-3">
+          <div className="grid grid-cols-3 gap-2">
+            {parsedSummary.assets.map((asset, i) => (
+              <a
+                key={i}
+                href={asset.url}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative rounded-xl overflow-hidden border shadow-sm block bg-black/60 h-24 theme-transition cursor-pointer"
+                style={{ borderColor: "var(--t-border)" }}
+                title={asset.title}
+              >
+                <img
+                  src={asset.thumb || asset.url}
+                  alt={asset.title}
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    const target = e.currentTarget
+                    target.onerror = null
+                    target.src = "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop"
+                  }}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end text-[10px] text-white">
+                  <span className="font-semibold truncate leading-tight">{asset.title}</span>
+                  <div className="flex items-center justify-between text-[9px] opacity-80 mt-0.5">
+                    <span>{asset.provider}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onMessageAgent(node.id, "Fetch 3 more visual assets")}
+            className="mt-3 w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer hover:opacity-90"
+            style={{
+              backgroundColor: "var(--t-bg-elevated)",
+              borderColor: "var(--t-border)",
+              color: "var(--t-text-1)",
+            }}
+          >
+            <span>📷 Load 3 More Images</span>
+          </button>
+        </div>
+      )}
 
       {node.isFollowUp && (
         <div className="mt-2 rounded-xl px-3 py-2 text-xs whitespace-pre-wrap" style={{ backgroundColor: "var(--t-bg-elevated)", color: "var(--t-text-2)" }}>

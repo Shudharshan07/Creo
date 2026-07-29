@@ -160,7 +160,7 @@ function App() {
 
       const latestProjectNodes = projectHistoryRef.current[projectId] ?? []
 
-      runAgentTask(node.kind, token, projectId, taskPrompt, controller.signal, latestProjectNodes)
+      runAgentTask(node.kind, token, projectId, taskPrompt, controller.signal, latestProjectNodes, selectedProject?.title)
         .then((summary) => {
           if (controller.signal.aborted) return
           updateAgentNode(node.id, { status: "done", summary, progress: 100 })
@@ -482,7 +482,8 @@ async function runAgentTask(
   projectId: string,
   prompt: string,
   signal: AbortSignal,
-  projectNodes: AgentNode[] = []
+  projectNodes: AgentNode[] = [],
+  projectTitle?: string
 ) {
   if (kind === "script") {
     const result = await generateScript(token, projectId, prompt, signal)
@@ -494,19 +495,18 @@ async function runAgentTask(
   }
   if (kind === "assets") {
     const scriptNode = projectNodes.find((n) => n.kind === "script" && n.status === "done")
-    const castingNode = projectNodes.find((n) => n.kind === "casting" && n.status === "done")
     const locationNode = projectNodes.find((n) => n.kind === "location" && n.status === "done")
 
     let contextualPrompt = prompt
     if (scriptNode?.summary) contextualPrompt += ` ${scriptNode.summary.slice(0, 120)}`
-    if (castingNode?.summary) contextualPrompt += ` ${castingNode.summary.slice(0, 120)}`
     if (locationNode?.summary) contextualPrompt += ` ${locationNode.summary.slice(0, 120)}`
 
     const isLoadMore = prompt.toLowerCase().includes("more") || prompt.toLowerCase().includes("load") || prompt.toLowerCase().includes("additional")
-    const limit = isLoadMore ? 6 : 3
+    const page = isLoadMore ? 2 : 1
+    const limit = 3
 
-    const results = await searchAgentAssets(token, projectId, contextualPrompt, limit, signal)
-    if (results.length === 0) return "No matching assets were found."
+    const results = await searchAgentAssets(token, projectId, contextualPrompt, limit, page, projectTitle, signal)
+    if (results.length === 0) return "No matching assets were found for this story topic."
 
     const items = results.map((a) => ({
       title: a.title ?? "Stock Asset",
@@ -516,7 +516,7 @@ async function runAgentTask(
     }))
 
     return JSON.stringify({
-      text: `Sourced ${results.length} royalty-free visual assets matching script, casting, & location context via ${results[0]?.source_provider ?? "Pixabay"}:`,
+      text: `Sourced ${results.length} royalty-free visual assets for "${projectTitle || "film"}" story topic via ${results[0]?.source_provider ?? "Pixabay"}:`,
       assets: items,
     })
   }

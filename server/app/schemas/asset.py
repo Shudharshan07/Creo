@@ -7,6 +7,8 @@ class AssetSearchRequest(BaseModel):
     query: str
     asset_type: str = "image"  # image | video | audio
     limit: int = 3
+    page: int = 1
+    project_title: str | None = None
 
 
 class AssetOut(BaseModel):

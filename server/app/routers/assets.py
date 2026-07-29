@@ -33,7 +33,7 @@ async def list_assets(project_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 @router.post("/search", response_model=list[AssetOut], status_code=201)
 async def search_and_save_assets(project_id: uuid.UUID, body: AssetSearchRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = await _get_project_or_404(project_id, current_user, db)
-    assets_data = await search_assets(body.query, body.asset_type, body.limit)
+    assets_data = await search_assets(body.query, body.asset_type, body.limit, project=project, page=body.page)
     saved = []
     for a in assets_data:
         asset = Asset(**a, project_id=project_id)

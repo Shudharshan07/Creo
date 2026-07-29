@@ -510,13 +510,6 @@ const NodeCard: React.FC<NodeCardProps> = ({
                 <img
                   src={asset.thumb || asset.url}
                   alt={asset.title}
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
-                  onError={(e) => {
-                    const target = e.currentTarget
-                    target.onerror = null
-                    target.src = "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop"
-                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end text-[10px] text-white">

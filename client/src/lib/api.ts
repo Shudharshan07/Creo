@@ -188,7 +188,15 @@ export async function createCastingCall(token: string, projectId: string, prompt
   })
 }
 
-export async function searchAgentAssets(token: string, projectId: string, prompt: string, limit = 3, signal?: AbortSignal) {
+export async function searchAgentAssets(
+  token: string,
+  projectId: string,
+  prompt: string,
+  limit = 3,
+  page = 1,
+  projectTitle?: string,
+  signal?: AbortSignal
+) {
   return await request<AssetResult[]>(`/projects/${projectId}/assets/search`, {
     method: "POST",
     headers: authHeaders(token),
@@ -196,6 +204,8 @@ export async function searchAgentAssets(token: string, projectId: string, prompt
       query: prompt,
       asset_type: inferAssetType(prompt),
       limit: limit,
+      page: page,
+      project_title: projectTitle,
     }),
     signal,
   })

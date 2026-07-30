@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react"
+import { Coins, X } from "lucide-react"
 import InfiniteDotCanvas, { type InfiniteDotCanvasHandle } from "./components/InfiniteDotCanvas"
 import ProjectsOverlay from "./components/ProjectsOverlay"
 import ProfileButton from "./components/ProfileButton"
@@ -6,10 +7,13 @@ import BottomBar from "./components/BottomBar"
 import AccountSettingsModal from "./components/AccountSettingsModal"
 import { LandingPage } from "./components/LandingPage"
 import AuthGate from "./components/AuthGate"
+import { useTheme } from "./context/theme"
 import {
   clearSession,
   createCastingCall,
   createCrewPosting,
+  generateCostumePlans,
+  generateFilmBudget,
   generateScript,
   getStoredSession,
   searchAgentAssets,
@@ -25,10 +29,15 @@ const CHILD_NODE_X_OFFSET = 320
 type ProjectHistoryState = Record<string, AgentNode[]>
 
 function App() {
+  const { resolvedTheme } = useTheme()
   const [session, setSession] = useState(() => getStoredSession())
   const [viewMode, setViewMode] = useState<"landing" | "login" | "studio">("landing")
   const [zoom, setZoom] = useState(1)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false)
+  const [dynamicBudgetData, setDynamicBudgetData] = useState<import("./lib/api").BudgetPlansData | null>(null)
+  const [isLoadingBudget, setIsLoadingBudget] = useState(false)
+  const [activePlanIdx, setActivePlanIdx] = useState(0)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [agentNodes, setAgentNodes] = useState<AgentNode[]>([])
   const [projectHistory, setProjectHistory] = useState<ProjectHistoryState>(() => loadProjectHistory())
@@ -38,6 +47,25 @@ function App() {
   const currentProjectNodes = selectedProject ? projectHistory[selectedProject.id] ?? [] : []
 
   const projectHistoryRef = useRef(projectHistory)
+  useEffect(() => {
+    setDynamicBudgetData(null)
+    setActivePlanIdx(0)
+  }, [selectedProject?.id])
+
+  useEffect(() => {
+    if (isBudgetModalOpen && selectedProject && session?.token && !dynamicBudgetData && !isLoadingBudget) {
+      setIsLoadingBudget(true)
+      generateFilmBudget(session.token, selectedProject.id, `Generate budget for ${selectedProject.title}`)
+        .then((res) => {
+          setDynamicBudgetData(res)
+          setIsLoadingBudget(false)
+        })
+        .catch(() => {
+          setIsLoadingBudget(false)
+        })
+    }
+  }, [isBudgetModalOpen, selectedProject, session?.token, dynamicBudgetData, isLoadingBudget])
+  
   useEffect(() => {
     projectHistoryRef.current = projectHistory
     persistProjectHistory(projectHistory)
@@ -208,7 +236,7 @@ function App() {
     const taskPrompt = buildFollowUpPrompt(parent, followUp)
 
     if (parent.kind === "planner") {
-      const workerKinds: AgentKind[] = ["script", "casting", "location", "music", "crew", "assets"]
+      const workerKinds: AgentKind[] = ["script", "casting", "costume", "location", "music", "crew", "assets"]
       const newNodes = workerKinds.map((kind, i) =>
         createNode(
           createNodeId(kind),
@@ -314,7 +342,7 @@ function App() {
     const bx = batch * 200
     const by = batch * 380
 
-    const workerKinds: AgentKind[] = ["script", "casting", "location", "music", "crew", "assets"]
+    const workerKinds: AgentKind[] = ["script", "casting", "costume", "location", "music", "crew", "assets"]
     const plannerSummary = `Dispatching ${workerKinds.length} agents in parallel for "${project.title}".`
     // Generous initial spacing ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â overlay will reflow based on actual heights
     const workerSpacing = 500
@@ -385,6 +413,22 @@ function App() {
             selectedProjectId={selectedProject?.id}
             onSelectProject={setSelectedProject}
           />
+          <button
+            type="button"
+            onClick={() => setIsBudgetModalOpen((open) => !open)}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border backdrop-blur-md ${
+              isBudgetModalOpen
+                ? resolvedTheme === "light"
+                  ? "bg-zinc-950 text-white border-zinc-900 shadow-md font-extrabold"
+                  : "bg-white text-black border-white shadow-md font-extrabold"
+                : resolvedTheme === "light"
+                  ? "bg-white/90 text-zinc-900 border-zinc-300 hover:bg-zinc-100 shadow-sm"
+                  : "bg-zinc-900/90 text-zinc-200 border-zinc-800 hover:bg-zinc-800 shadow-sm"
+            }`}
+          >
+            <Coins className="w-4 h-4" />
+            <span>{isBudgetModalOpen ? "Hide Film Budget" : "Film Budget (INR)"}</span>
+          </button>
         </div>
         <div className="pointer-events-auto">
           <ProfileButton
@@ -422,9 +466,225 @@ function App() {
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+
+      {/* Pro Dynamic Theme-Adaptive Film Budget Modal Overlay */}
+      {isBudgetModalOpen && (
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl transition-all duration-300 ${
+          resolvedTheme === "light" ? "bg-black/40" : "bg-black/85"
+        }`}>
+          <div
+            className={`w-full max-w-2xl rounded-3xl p-7 border shadow-2xl space-y-6 theme-transition max-h-[88vh] overflow-y-auto custom-scrollbar relative ${
+              resolvedTheme === "light"
+                ? "bg-white border-zinc-200 text-zinc-900"
+                : "bg-zinc-950 border-zinc-800 text-white"
+            }`}
+          >
+            {/* Apple Minimalist Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsBudgetModalOpen(false)}
+              className={`absolute top-6 right-6 p-2 rounded-full transition-all cursor-pointer z-10 ${
+                resolvedTheme === "light"
+                  ? "bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900"
+                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white"
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header Badge & Title */}
+            <div className="space-y-1 pr-10">
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+                  resolvedTheme === "light"
+                    ? "bg-zinc-100 text-zinc-800 border-zinc-300"
+                    : "bg-zinc-800 text-zinc-200 border-zinc-700"
+                }`}>
+                  Financial Controller
+                </span>
+                <span className={`text-[10px] font-medium ${resolvedTheme === "light" ? "text-zinc-500" : "text-zinc-400"}`}>
+                  {selectedProject ? selectedProject.title : "Film Project"}
+                </span>
+              </div>
+              <h3 className={`text-xl font-bold tracking-tight ${resolvedTheme === "light" ? "text-zinc-900" : "text-white"}`}>
+                Film Production Budget (INR)
+              </h3>
+            </div>
+
+            {isLoadingBudget ? (
+              <div className="py-16 text-center space-y-3">
+                <div className="flex justify-center">
+                  <div className={`w-8 h-8 rounded-full border-2 animate-spin ${
+                    resolvedTheme === "light" ? "border-zinc-300 border-t-zinc-900" : "border-white/20 border-t-white"
+                  }`}></div>
+                </div>
+                <p className={`text-xs font-medium ${resolvedTheme === "light" ? "text-zinc-600" : "text-zinc-400"}`}>
+                  Analyzing story concept & generating dynamic film line-item budget...
+                </p>
+              </div>
+            ) : dynamicBudgetData && dynamicBudgetData.plans && dynamicBudgetData.plans.length > 0 ? (
+              <>
+                {/* Dynamic AI Tier Segmented Switcher */}
+                <div className={`p-1 rounded-2xl border flex items-center gap-1 ${
+                  resolvedTheme === "light" ? "bg-zinc-100 border-zinc-200" : "bg-zinc-900 border-zinc-800"
+                }`}>
+                  {dynamicBudgetData.plans.map((plan, idx) => {
+                    const isActive = idx === activePlanIdx
+                    const totalStr = plan.formatted_total ?? (plan.total_budget ? `₹${(plan.total_budget / 100000).toFixed(1)}L` : "")
+                    return (
+                      <button
+                        key={plan.plan_id || idx}
+                        type="button"
+                        onClick={() => setActivePlanIdx(idx)}
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs transition-all cursor-pointer text-center truncate ${
+                          isActive
+                            ? resolvedTheme === "light"
+                              ? "bg-zinc-950 text-white font-extrabold shadow-sm"
+                              : "bg-white text-black font-extrabold shadow-sm"
+                            : resolvedTheme === "light"
+                              ? "text-zinc-600 hover:text-zinc-900 font-medium"
+                              : "text-zinc-400 hover:text-white font-medium"
+                        }`}
+                      >
+                        {plan.plan_name} {totalStr && `(${totalStr})`}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Selected Dynamic Plan Details */}
+                {(() => {
+                  const currentPlan = dynamicBudgetData.plans[activePlanIdx] ?? dynamicBudgetData.plans[0]
+                  const displayTotal = currentPlan.formatted_total ?? (currentPlan.total_budget ? `₹${currentPlan.total_budget.toLocaleString('en-IN')}` : "₹10 Lakh")
+                  return (
+                    <>
+                      {/* Hero Financial Stat Card */}
+                      <div className={`p-6 rounded-2xl border space-y-1 ${
+                        resolvedTheme === "light" ? "bg-zinc-50 border-zinc-200" : "bg-zinc-900/60 border-zinc-800"
+                      }`}>
+                        <span className={`text-[10px] font-semibold uppercase tracking-widest block ${
+                          resolvedTheme === "light" ? "text-zinc-500" : "text-zinc-400"
+                        }`}>
+                          Total Estimated Production Budget
+                        </span>
+                        <div className="flex items-baseline gap-3">
+                          <span className={`text-3xl sm:text-4xl font-extrabold tracking-tight font-mono ${
+                            resolvedTheme === "light" ? "text-zinc-900" : "text-white"
+                          }`}>
+                            {displayTotal}
+                          </span>
+                        </div>
+                        <p className={`text-xs pt-1 ${resolvedTheme === "light" ? "text-zinc-600" : "text-zinc-400"}`}>
+                          {currentPlan.description}
+                        </p>
+                      </div>
+
+                      {/* Department Breakdown Cards */}
+                      {currentPlan.departments && currentPlan.departments.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className={`text-xs font-semibold uppercase tracking-wider ${
+                              resolvedTheme === "light" ? "text-zinc-700" : "text-zinc-300"
+                            }`}>
+                              Department Allocation Breakdown
+                            </h4>
+                            <span className={`text-[10px] font-mono ${
+                              resolvedTheme === "light" ? "text-zinc-500" : "text-zinc-400"
+                            }`}>
+                              {currentPlan.departments.length} Departments
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {currentPlan.departments.map((dept, idx) => {
+                              const deptVal = dept.formatted_allocation ?? (dept.allocation ? `₹${dept.allocation.toLocaleString('en-IN')}` : "")
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`p-3 rounded-xl border space-y-1 ${
+                                    resolvedTheme === "light"
+                                      ? "bg-zinc-50 border-zinc-200"
+                                      : "bg-zinc-900/50 border-zinc-800"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className={`font-medium ${
+                                      resolvedTheme === "light" ? "text-zinc-800" : "text-zinc-200"
+                                    }`}>
+                                      {dept.department}
+                                    </span>
+                                    <span className={`font-mono font-bold text-xs ${
+                                      resolvedTheme === "light" ? "text-zinc-900" : "text-white"
+                                    }`}>
+                                      {deptVal}
+                                    </span>
+                                  </div>
+                                  {dept.notes && (
+                                    <p className={`text-[10px] leading-tight ${
+                                      resolvedTheme === "light" ? "text-zinc-500" : "text-zinc-500"
+                                    }`}>
+                                      {dept.notes}
+                                    </p>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {currentPlan.producer_notes && (
+                        <div className={`text-[11px] italic p-3 rounded-xl border ${
+                          resolvedTheme === "light"
+                            ? "bg-zinc-100 text-zinc-600 border-zinc-200"
+                            : "bg-zinc-900/30 text-zinc-400 border-zinc-800/50"
+                        }`}>
+                          <span className={`font-semibold not-italic ${
+                            resolvedTheme === "light" ? "text-zinc-900" : "text-zinc-200"
+                          }`}>
+                            Producer Strategy:{" "}
+                          </span>
+                          {currentPlan.producer_notes}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </>
+            ) : (
+              <div className="py-12 text-center space-y-2">
+                <p className={`text-xs ${resolvedTheme === "light" ? "text-zinc-500" : "text-zinc-400"}`}>
+                  No budget generated for this film yet. Submit a prompt on the canvas to generate a custom line producer budget.
+                </p>
+              </div>
+            )}
+
+            {/* Apple Modal Footer */}
+            <div className={`pt-3 flex items-center justify-between border-t ${
+              resolvedTheme === "light" ? "border-zinc-200" : "border-zinc-800"
+            }`}>
+              <span className={`text-[11px] ${resolvedTheme === "light" ? "text-zinc-500" : "text-zinc-400"}`}>
+                Calculated in Indian Rupees (₹ INR).
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsBudgetModalOpen(false)}
+                className={`px-6 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+                  resolvedTheme === "light"
+                    ? "bg-zinc-950 text-white hover:bg-zinc-800"
+                    : "bg-white text-black hover:bg-zinc-200"
+                }`}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
+
 
 function createNode(
   id: string,
@@ -455,6 +715,8 @@ function createNodeId(kind: AgentKind) {
 function titleForKind(kind: AgentKind) {
   if (kind === "script") return "Script Writer"
   if (kind === "casting") return "Casting Director"
+  if (kind === "costume") return "Costume & Wardrobe"
+  if (kind === "budget") return "Film Budget Producer"
   if (kind === "assets") return "Asset Scout"
   if (kind === "crew") return "Crew Recruiter"
   if (kind === "location") return "Location Scout"
@@ -473,7 +735,7 @@ async function runAgentTask(
 ) {
   if (kind === "script") {
     const result = await generateScript(token, projectId, prompt, signal)
-    return result.ai_notes ?? result.scene_breakdown ?? result.content ?? `Script v${result.version} generated.`
+    return result.content ?? result.scene_breakdown ?? result.ai_notes ?? `Script v${result.version} generated.`
   }
   if (kind === "casting") {
     const result = await createCastingCall(token, projectId, prompt, signal)
@@ -552,11 +814,24 @@ async function runAgentTask(
       tracks: items,
     })
   }
+  if (kind === "costume") {
+    const result = await generateCostumePlans(token, projectId, prompt, signal)
+    return typeof result === "string" ? result : (result as any).summary ?? "Costume & Wardrobe design generated."
+  }
+  if (kind === "budget") {
+    const result = await generateFilmBudget(token, projectId, prompt, signal)
+    return JSON.stringify({
+      text: result.summary,
+      budgetPlans: result.plans,
+    })
+  }
   return "Planning complete."
 }
 
 
 function runningSummaryForKind(kind: AgentKind) {
+  if (kind === "costume") return "Designing character wardrobe & hero costumes in ₹..."
+  if (kind === "budget") return "Computing full film production budget & department line-items in ₹..."
   if (kind === "assets") return "Searching Pixabay for photos matching script & location context..."
   if (kind === "music") return "Finding soundtrack tracks with playable previews..."
   if (kind === "crew") return "Generating crew posting copy and poster artwork..."

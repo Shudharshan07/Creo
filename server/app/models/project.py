@@ -27,3 +27,4 @@ class Project(Base):
     crew_postings: Mapped[list["CrewPosting"]] = relationship("CrewPosting", back_populates="project", cascade="all, delete-orphan")
     location_scouts: Mapped[list["LocationScout"]] = relationship("LocationScout", back_populates="project", cascade="all, delete-orphan")
     music_tracks: Mapped[list["MusicTrack"]] = relationship("MusicTrack", back_populates="project", cascade="all, delete-orphan")
+    costume_plans: Mapped[list["CostumePlan"]] = relationship("CostumePlan", back_populates="project", cascade="all, delete-orphan")

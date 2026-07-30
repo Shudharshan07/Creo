@@ -6,5 +6,6 @@ from app.models.asset import Asset
 from app.models.crew import CrewPosting
 from app.models.location import LocationScout
 from app.models.music import MusicTrack
+from app.models.costume import CostumePlan
 
-__all__ = ["User", "Project", "Script", "CastingCall", "Asset", "CrewPosting", "LocationScout", "MusicTrack"]
+__all__ = ["User", "Project", "Script", "CastingCall", "Asset", "CrewPosting", "LocationScout", "MusicTrack", "CostumePlan"]

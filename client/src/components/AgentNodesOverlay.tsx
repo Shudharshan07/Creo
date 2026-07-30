@@ -1,6 +1,7 @@
 import React, { useRef, useState, useLayoutEffect, useCallback, useEffect, useMemo } from "react"
-import { Ban, CheckCircle2, Clock, Download, Ellipsis, ExternalLink, FilePenLine, FileText, ImageIcon, Loader2, MapPin, MessageCircle, Music, Search, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
+import { Ban, CheckCircle2, Clock, Coins, Download, Ellipsis, ExternalLink, FilePenLine, FileText, ImageIcon, Loader2, MapPin, MessageCircle, Music, Search, Shirt, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
 import { type AgentKind, type AgentNode, type AgentNodeStatus } from "../types/agent"
+import { type BudgetPlanItem, formatINR } from "../lib/api"
 
 interface AgentNodesOverlayProps {
   nodes: AgentNode[]
@@ -12,7 +13,7 @@ interface AgentNodesOverlayProps {
   zoom: number
 }
 
-// Min/max card width ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â grows with content up to max
+// Min/max card width — grows with content up to max
 const CARD_MIN_W = 260
 const CARD_MAX_W = 700
 
@@ -24,6 +25,8 @@ const kindIcons: Record<AgentKind, React.ReactNode> = {
   crew: <Users className="w-4 h-4" />,
   location: <MapPin className="w-4 h-4" />,
   music: <Music className="w-4 h-4" />,
+  costume: <Shirt className="w-4 h-4" />,
+  budget: <Coins className="w-4 h-4" />,
 }
 
 // Tracks actual rendered card size for arrow anchoring
@@ -290,6 +293,7 @@ const NodeCard: React.FC<NodeCardProps> = ({
           assets?: Array<{ title: string; url: string; thumb: string; provider: string }>
           tracks?: Array<{ title: string; artist: string; album: string; preview: string; url: string; cover: string }>
           crewPoster?: { title: string; imageUrl: string; downloadName: string }
+          budgetPlans?: BudgetPlanItem[]
         }
       }
     } catch {
@@ -667,6 +671,14 @@ const NodeCard: React.FC<NodeCardProps> = ({
         </div>
       )}
 
+      {parsedSummary?.budgetPlans && parsedSummary.budgetPlans.length > 0 && (
+        <BudgetPlansCard
+          plans={parsedSummary.budgetPlans}
+          nodeId={node.id}
+          onMessageAgent={onMessageAgent}
+        />
+      )}
+
       {node.isFollowUp && (
         <div className="mt-2 rounded-xl px-3 py-2 text-xs whitespace-pre-wrap" style={{ backgroundColor: "var(--t-bg-elevated)", color: "var(--t-text-2)" }}>
           <span className="font-semibold" style={{ color: "var(--t-text-3)" }}>Follow-up</span>
@@ -816,5 +828,130 @@ function statusLabel(status: AgentNodeStatus) {
   if (status === "queued") return "Queued"
   return "Working"
 }
+
+
+
+interface BudgetPlansCardProps {
+  plans: BudgetPlanItem[]
+  nodeId: string
+  onMessageAgent: (id: string, message: string) => void
+}
+
+const BudgetPlansCard: React.FC<BudgetPlansCardProps> = ({ plans, nodeId, onMessageAgent }) => {
+  const [activePlanId, setActivePlanId] = useState<string>(plans[1]?.plan_id ?? plans[0]?.plan_id ?? "mid")
+  const [isExpanded, setIsExpanded] = useState<boolean>(true)
+  const selectedPlan = plans.find((p) => p.plan_id === activePlanId) ?? plans[0]
+
+  if (!selectedPlan) return null
+
+  const displayTotal = selectedPlan.formatted_total ?? formatINR(selectedPlan.total_budget)
+
+  const handleSpawnConnectedPlan = (plan: BudgetPlanItem) => {
+    setActivePlanId(plan.plan_id)
+    onMessageAgent(nodeId, `Generate updated full film production budget details for ${plan.plan_name} (${plan.formatted_total ?? formatINR(plan.total_budget)}) in ₹`)
+  }
+
+  return (
+    <div className="mt-3 space-y-2.5">
+      {/* Tiered Plan Selection Tabs */}
+      <div className="flex items-center gap-1 p-1 rounded-xl border bg-black/20" style={{ borderColor: "var(--t-border)" }}>
+        {plans.map((plan) => {
+          const isActive = plan.plan_id === activePlanId
+          const planTotal = plan.formatted_total ?? formatINR(plan.total_budget)
+          return (
+            <button
+              key={plan.plan_id}
+              onClick={() => handleSpawnConnectedPlan(plan)}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer truncate ${
+                isActive ? "bg-emerald-400 text-black shadow-md font-extrabold" : "opacity-70 hover:opacity-100"
+              }`}
+              style={!isActive ? { color: "var(--t-text-1)" } : undefined}
+            >
+              {plan.tier.toUpperCase()} ({planTotal})
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Selected Plan Details & Total Film Budget */}
+      <div className="p-3 rounded-xl border theme-transition space-y-2.5" style={{ borderColor: "var(--t-border)", backgroundColor: "var(--t-bg-elevated)" }}>
+        <div className="flex items-start justify-between gap-2 border-b pb-2" style={{ borderColor: "var(--t-border)" }}>
+          <div className="min-w-0">
+            <h4 className="text-xs font-bold text-emerald-400 truncate">{selectedPlan.plan_name}</h4>
+            <p className="text-[10px] leading-tight opacity-75 mt-0.5" style={{ color: "var(--t-text-2)" }}>
+              {selectedPlan.description}
+            </p>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 block">Full Film Budget</span>
+            <span className="text-sm font-extrabold text-emerald-300">
+              {displayTotal}
+            </span>
+          </div>
+        </div>
+
+        {/* Toggle View Button */}
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+            Line-Item Department Costs (INR)
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsExpanded((exp) => !exp)}
+            className="text-[10px] font-semibold text-emerald-400 hover:underline cursor-pointer"
+          >
+            {isExpanded ? "🙈 Hide Breakdown" : "👁️ Show Breakdown"}
+          </button>
+        </div>
+
+        {/* Full Film Department Budget Allocations */}
+        {isExpanded && selectedPlan.departments && selectedPlan.departments.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="grid grid-cols-1 gap-1.5">
+              {selectedPlan.departments.map((dept, idx) => {
+                const deptCost = dept.formatted_allocation ?? formatINR(dept.allocation)
+                return (
+                  <div
+                    key={idx}
+                    className="p-2 rounded-lg border flex items-start justify-between text-xs gap-2 bg-black/30"
+                    style={{ borderColor: "var(--t-border)" }}
+                  >
+                    <div className="min-w-0">
+                      <span className="font-bold text-emerald-200 block">{dept.department}</span>
+                      {dept.notes && <p className="text-[10px] opacity-70 leading-tight mt-0.5">{dept.notes}</p>}
+                    </div>
+                    <span className="font-mono font-bold text-emerald-400 text-xs flex-shrink-0">
+                      {deptCost}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Producer Notes */}
+        {selectedPlan.producer_notes && (
+          <div className="pt-2 border-t text-[10px]" style={{ borderColor: "var(--t-border)", color: "var(--t-text-3)" }}>
+            <span className="font-bold text-emerald-400">Producer Advice: </span>
+            {selectedPlan.producer_notes}
+          </div>
+        )}
+
+        {/* Action Button: Connect Updated Node via Canvas Line */}
+        <button
+          type="button"
+          onClick={() => handleSpawnConnectedPlan(selectedPlan)}
+          className="mt-2 w-full py-1.5 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer hover:bg-emerald-400/10 hover:border-emerald-400"
+          style={{ borderColor: "var(--t-border)", color: "var(--t-text-1)" }}
+        >
+          <Coins className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Connect Updated Budget Node ↗</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 
 export default AgentNodesOverlay

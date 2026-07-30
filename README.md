@@ -8,10 +8,11 @@ An AI-powered pre-production studio & interactive node canvas designed for film 
 
 ## Overview
 
-**Movie Agent** features an interactive node-based canvas powered by a 6-agent parallel AI workflow:
+**Movie Agent** features an interactive node-based canvas powered by a 7-agent parallel AI workflow:
 
 - **Script Writer** — Screenplay formatting, scene breakdowns, character arcs, and AI-driven script iteration.
 - **Casting Director** — Character motivation matrices, audition notices, concept actor matching, and printable casting calls.
+- **Costume & Wardrobe Agent** — Multi-budget costume planning (Indie, Mid, Studio), character outfit breakdowns, itemized costs, and sourcing strategy.
 - **Location Scout** — Architectural & outdoor shooting locations, lighting/permit considerations, and visual ambiance analysis.
 - **Music Director (Jamendo API)** — Royalty-free soundtrack discovery via Jamendo API with built-in 30-second audio stream previews directly on canvas node cards.
 - **Asset Scout (Pixabay & Pexels APIs)** — Story-topic anchored visual media sourcing, moodboard references, and B-roll clips.

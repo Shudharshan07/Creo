@@ -280,6 +280,84 @@ export async function searchMusicTracks(
   })
 }
 
+export interface DepartmentBudgetItem {
+  department: string
+  allocation: number
+  formatted_allocation?: string
+  notes?: string
+}
+
+export interface BudgetPlanItem {
+  plan_id: string
+  plan_name: string
+  tier: "indie" | "mid" | "studio" | string
+  total_budget: number
+  formatted_total?: string
+  currency: string
+  description: string
+  departments: DepartmentBudgetItem[]
+  producer_notes?: string
+}
+
+export interface BudgetPlansData {
+  summary: string
+  currency?: string
+  plans: BudgetPlanItem[]
+}
+
+export interface CostumeCharacter {
+  character_name: string
+  outfit: string
+  styling_notes?: string
+  fabric_details?: string
+  notes?: string
+}
+
+export interface CostumePlanItem {
+  plan_id: string
+  plan_name: string
+  tier: "indie" | "mid" | "studio" | string
+  sourcing_strategy?: string
+  characters?: CostumeCharacter[]
+}
+
+
+export interface CostumePlansData {
+  summary: string
+  currency?: string
+  plans: CostumePlanItem[]
+}
+
+export function formatINR(amount: number): string {
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)} Cr`
+  }
+  if (amount >= 100000) {
+    return `₹${(amount / 100000).toFixed(2)} Lakh`
+  }
+  return `₹${amount.toLocaleString('en-IN')}`
+}
+
+export async function generateFilmBudget(token: string, projectId: string, prompt: string, signal?: AbortSignal) {
+  return await request<BudgetPlansData>(`/projects/${projectId}/budgets/generate`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ prompt }),
+    signal,
+  })
+}
+
+export async function generateCostumePlans(token: string, projectId: string, prompt: string, signal?: AbortSignal) {
+  return await request<CostumePlansData>(`/projects/${projectId}/costumes/generate`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ prompt }),
+    signal,
+  })
+}
+
+
+
 function toClientProject(project: ServerProject): Project {
   return {
     id: project.id,

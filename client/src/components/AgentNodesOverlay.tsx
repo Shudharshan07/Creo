@@ -1,5 +1,5 @@
 import React, { useRef, useState, useLayoutEffect, useCallback, useEffect, useMemo } from "react"
-import { Ban, CheckCircle2, Clock, Coins, Download, Ellipsis, ExternalLink, FilePenLine, FileText, ImageIcon, Loader2, MapPin, MessageCircle, Music, Search, Shirt, Trash2, Users, WandSparkles, XCircle } from "lucide-react"
+import { Ban, Box, Camera, CheckCircle2, Clock, Coins, Download, Ellipsis, ExternalLink, FilePenLine, FileText, Headphones, ImageIcon, Loader2, MapPin, MessageCircle, MessageSquare, Mic, Music, Palette, Scissors, Search, Shirt, Sliders, Sparkles, Sun, Trash2, UserCheck, Users, Video, WandSparkles, XCircle, Zap } from "lucide-react"
 import { type AgentKind, type AgentNode, type AgentNodeStatus } from "../types/agent"
 import { type BudgetPlanItem, formatINR } from "../lib/api"
 
@@ -27,6 +27,101 @@ const kindIcons: Record<AgentKind, React.ReactNode> = {
   music: <Music className="w-4 h-4" />,
   costume: <Shirt className="w-4 h-4" />,
   budget: <Coins className="w-4 h-4" />,
+}
+
+interface SubAgentDef {
+  label: string
+  prompt: string
+  icon: React.ReactNode
+}
+
+const SUB_AGENTS: Record<AgentKind, SubAgentDef[]> = {
+  planner: [],
+  script: [
+    {
+      label: "Dialogue Polish",
+      prompt: "Run Dialogue Polish Sub-Agent: Rewrite the scene dialogue with sharp subtext, witty retorts, and authentic regional phrasing.",
+      icon: <MessageSquare className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+    {
+      label: "Pacing Doctor",
+      prompt: "Run Pacing Doctor Sub-Agent: Analyze scene tension, flag slow moments, and recommend dramatic beat adjustments.",
+      icon: <Zap className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+  ],
+  casting: [
+    {
+      label: "Dialect Coach",
+      prompt: "Run Voice & Dialect Coach Sub-Agent: Create an accent guide, phonetic pronunciation tips, and regional slang notes for the cast.",
+      icon: <Mic className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+    {
+      label: "Audition Sides",
+      prompt: "Run Audition Monologue Sub-Agent: Write custom 1-minute audition monologues tailored to each lead character.",
+      icon: <UserCheck className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+  ],
+  costume: [
+    {
+      label: "Color Palette Arc",
+      prompt: "Run Color Palette Arc Sub-Agent: Map costume color transitions across the story arc to reflect emotional character development.",
+      icon: <Palette className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+    {
+      label: "Fabric Practicality",
+      prompt: "Run Fabric Practicality Sub-Agent: Recommend fabrics suitable for climate, action scenes, and night shooting.",
+      icon: <Scissors className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+  ],
+  location: [
+    {
+      label: "Golden Hour Scout",
+      prompt: "Run Golden Hour & Lighting Scout Sub-Agent: Calculate natural lighting windows, sun direction, and golden hour shoot times for each location.",
+      icon: <Sun className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+    {
+      label: "Permit Release",
+      prompt: "Run Permit & Clearance Sub-Agent: Detail local police, municipal, ASI heritage site, and drone shooting clearance requirements.",
+      icon: <FileText className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+  ],
+  music: [
+    {
+      label: "Foley Soundscape",
+      prompt: "Run Foley Soundscape Sub-Agent: Detail 3D Dolby Atmos sound design, environmental audio cues, and foley footsteps.",
+      icon: <Headphones className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+    {
+      label: "Character Motif",
+      prompt: "Run Character Leitmotif Sub-Agent: Compose distinct musical theme concepts and instrument signatures for hero and antagonist.",
+      icon: <Sliders className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+  ],
+  crew: [
+    {
+      label: "Technical Rigging",
+      prompt: "Run Technical Rigging Specialist Sub-Agent: Specify camera cranes, gimbals, car mounts, and specialized rigging packages.",
+      icon: <Video className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+    {
+      label: "Day Rate Optimizer",
+      prompt: "Run Day Rate Optimizer Sub-Agent: Organize crew call sheets and overtime risk mitigation strategies.",
+      icon: <Clock className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+  ],
+  assets: [
+    {
+      label: "Hero Prop Master",
+      prompt: "Run Hero Prop Master Sub-Agent: Breakdown hero props, custom fabrications, mechanical props, and stunt duplicates.",
+      icon: <Box className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+    {
+      label: "Set Dressing Detail",
+      prompt: "Run Set Dressing Sub-Agent: Detail interior set dressing, period props, graphic design items, and background textures.",
+      icon: <Camera className="w-3 h-3 opacity-70 group-hover:opacity-100" />,
+    },
+  ],
+  budget: [],
 }
 
 // Tracks actual rendered card size for arrow anchoring
@@ -744,6 +839,30 @@ const NodeCard: React.FC<NodeCardProps> = ({
             className="h-full rounded-full transition-all duration-700 ease-out"
             style={{ width: `${node.progress}%`, backgroundColor: statusColor(node.status) }}
           />
+        </div>
+      )}
+
+      {node.status === "done" && SUB_AGENTS[node.kind] && SUB_AGENTS[node.kind].length > 0 && (
+        <div className="mt-3 pt-2.5 border-t space-y-1.5" style={{ borderColor: "var(--t-border)" }}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: "var(--t-text-4)" }}>
+              <Sparkles className="w-3 h-3 opacity-80" />
+              Sub-Agent Specialists
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {SUB_AGENTS[node.kind].map((sub, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onMessageAgent(node.id, sub.prompt)}
+                className="group flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border theme-transition text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
+              >
+                {sub.icon}
+                <span>{sub.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
